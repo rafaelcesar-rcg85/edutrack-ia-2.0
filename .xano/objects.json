@@ -1,0 +1,137 @@
+[
+  {
+    "id": 0,
+    "path": "functions/quick_start/301976_log_event.xs",
+    "status": "new",
+    "type": "function",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "functions/quick_start/301977_generate_magic_link.xs",
+    "status": "new",
+    "type": "function",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "functions/quick_start/301978_enforce_role.xs",
+    "status": "new",
+    "type": "function",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "tables/822250_user.xs",
+    "status": "new",
+    "type": "table",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "tables/822251_event_log.xs",
+    "status": "new",
+    "type": "table",
+    "staged": true
+  },
+  {
+    "id": 822333,
+    "path": "tables/subject.xs",
+    "status": "unchanged",
+    "type": "table",
+    "staged": false,
+    "sha256": "5400d762da754d2579885dad13d7242c621d03f4991694cac2f06b667e9246d3",
+    "original": "dGFibGUgc3ViamVjdCB7CiAgYXV0aCA9IGZhbHNlCgogIHNjaGVtYSB7CiAgICBpbnQgaWQKICAgIHRpbWVzdGFtcCBjcmVhdGVkX2F0Pz1ub3cKICAgIHRleHQgbmFtZQogICAgdGV4dCB0ZWFjaGVyPwogICAgaW50IHRvdGFsX2hvdXJzPwogIAogICAgLy8gRm9yZWlnbiBrZXkgdG8gdXNlcgogICAgaW50IHVzZXJfaWQgewogICAgICB0YWJsZSA9ICJ1c2VyIgogICAgfQogIH0KCiAgaW5kZXggPSBbCiAgICB7dHlwZTogInByaW1hcnkiLCBmaWVsZDogW3tuYW1lOiAiaWQifV19CiAgICB7dHlwZTogImJ0cmVlIiwgZmllbGQ6IFt7bmFtZTogImNyZWF0ZWRfYXQiLCBvcDogImRlc2MifV19CiAgICB7dHlwZTogImJ0cmVlIiwgZmllbGQ6IFt7bmFtZTogInVzZXJfaWQifV19CiAgXQp9"
+  },
+  {
+    "id": 0,
+    "path": "tools/28564_search_xano_docs.xs",
+    "status": "new",
+    "type": "tool",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/authentication/api_group.xs",
+    "status": "new",
+    "type": "api_group",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/event_logs/api_group.xs",
+    "status": "new",
+    "type": "api_group",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/authentication/3854010_auth_login_POST.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/authentication/3854011_auth_me_GET.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/authentication/3854012_auth_signup_POST.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/authentication/3854014_message_send_welcome_email_POST.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/authentication/3854015_reset_magic_link_login_POST.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/authentication/3854016_reset_request_reset_link_GET.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/authentication/3854017_reset_update_password_POST.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/event_logs/3854013_logs_user_my_events_GET.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "agents/28667_xano_example_agent.xs",
+    "status": "new",
+    "type": "agent",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "addons/120269_user.xs",
+    "status": "new",
+    "type": "addon",
+    "staged": true
+  }
+]
