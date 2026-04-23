@@ -1,0 +1,5 @@
+- [x] Create the new `subject` table in Xano database
+- [x] Add `name` column (type: text) to the table
+- [x] Add `teacher` column (type: text) to the table
+- [x] Add `total_hours` column (type: integer) to the table
+- [x] Add `user_id` reference column pointing to the `user` table (foreign key constraint)
