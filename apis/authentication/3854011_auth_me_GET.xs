@@ -1,7 +1,4 @@
 // Get the user record belonging to the authentication token
-// Meu primeiro comentario via VS Code 
-
-
 query "auth/me" verb=GET {
   api_group = "Authentication"
   auth = "user"

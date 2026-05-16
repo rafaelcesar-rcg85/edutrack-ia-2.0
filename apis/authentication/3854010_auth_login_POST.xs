@@ -1,6 +1,4 @@
 // Login and retrieve an authentication token
-// Meu primeiro comentario via VS Code 
-
 query "auth/login" verb=POST {
   api_group = "Authentication"
 
