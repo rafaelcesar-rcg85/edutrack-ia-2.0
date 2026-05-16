@@ -1,0 +1,2 @@
+- [x] Create `activity_grades` table
+- [ ] Create POST `/activity_grades` API (to submit grades)
