@@ -13,7 +13,14 @@ def tela_acesso():
             if st.form_submit_button('Acessar Meu Painel'):
                 res = requests.post(f'{BASE_URL}/auth/login', json={'email': email, 'password': senha})
                 if res.status_code == 200:
-                    st.session_state.auth_token = res.json().get('authToken')
+                    token = res.json().get('authToken')
+                    st.session_state.auth_token = token
+                    
+                    # Recuperar informações do usuário autenticado
+                    res_me = requests.get(f'{BASE_URL}/auth/me', headers={'Authorization': f'Bearer {token}'})
+                    if res_me.status_code == 200:
+                        st.session_state.user_id = res_me.json().get('id')
+                        
                     st.session_state.logged_in = True
                     st.rerun()
                 else:

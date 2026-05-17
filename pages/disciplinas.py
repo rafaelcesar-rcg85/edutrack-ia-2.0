@@ -16,7 +16,10 @@ def modulo_disciplinas():
         opcoes_p = {p['nome']: p['id'] for p in profs}
         p_escolhido = st.selectbox('Professor Responsável', options=list(opcoes_p.keys()))
         if st.button('Salvar Disciplina'):
-            api_post('disciplinas', {'nome': nome_d, 'prof_id': opcoes_p[p_escolhido]})
+            dados_disc = {'nome': nome_d, 'prof_id': opcoes_p[p_escolhido]}
+            if 'user_id' in st.session_state:
+                dados_disc['user_id'] = st.session_state.user_id
+            api_post('disciplinas', dados_disc)
             st.rerun()
 
     # [R]EAD

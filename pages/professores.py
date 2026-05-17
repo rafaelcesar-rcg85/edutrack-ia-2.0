@@ -9,7 +9,10 @@ def modulo_professores():
         nome = st.text_input('Nome do Professor')
         email = st.text_input('E-mail de Contato')
         if st.button('Cadastrar Professor'):
-            api_post('professores', {'nome': nome, 'email': email})
+            dados_prof = {'nome': nome, 'email': email}
+            if 'user_id' in st.session_state:
+                dados_prof['user_id'] = st.session_state.user_id
+            api_post('professores', dados_prof)
             st.rerun()
 
     # [R]EAD & [U]PDATE & [D]ELETE

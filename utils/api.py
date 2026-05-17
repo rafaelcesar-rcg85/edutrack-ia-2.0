@@ -14,10 +14,16 @@ def get_headers():
 
 def api_get(endpoint):
     '''
-    Lê dados do Xano (filtra automaticamente pelo usuário no servidor).
+    Lê dados do Xano (filtra automaticamente pelo usuário no servidor ou no frontend).
     '''
     resposta = requests.get(f'{BASE_URL}/{endpoint}', headers=get_headers())
-    return resposta.json() if resposta.status_code == 200 else []
+    dados = resposta.json() if resposta.status_code == 200 else []
+    
+    # Filtrar no frontend pelo user_id para garantir que o usuário só veja os seus próprios dados
+    if 'user_id' in st.session_state and isinstance(dados, list):
+        dados = [item for item in dados if item.get('user_id') == st.session_state.user_id or 'user_id' not in item]
+        
+    return dados
 
 def api_post(endpoint, dados):
     '''

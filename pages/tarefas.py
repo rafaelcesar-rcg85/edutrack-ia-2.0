@@ -24,7 +24,7 @@ def modulo_tarefas():
         status = st.selectbox('Status', options=['Concluída', 'Para Entregar'])
         data_entrega = None
         if status == 'Para Entregar':
-            data_entrega = st.date_input('Data de Entrega')
+            data_entrega = st.date_input('Data de Entrega', format="DD/MM/YYYY")
             
         nota = st.number_input('Nota Obtida', 0.0, 10.0, 0.0)
         
@@ -34,6 +34,8 @@ def modulo_tarefas():
                 'disc_id': opcoes_d[d_escolhida], 
                 'status': status
             }
+            if 'user_id' in st.session_state:
+                dados['user_id'] = st.session_state.user_id
             if status == 'Concluída':
                 dados['nota'] = nota
                 
@@ -80,7 +82,7 @@ def modulo_tarefas():
                     index_status = 1 if def_status == 'Para Entregar' else 0
                     novo_status = st.selectbox('Status', options=['Concluída', 'Para Entregar'], index=index_status)
                     
-                    nova_data = st.date_input('Data de Entrega', value=def_data)
+                    nova_data = st.date_input('Data de Entrega', value=def_data, format="DD/MM/YYYY")
                     nova_nota = st.number_input('Nota Obtida', 0.0, 10.0, def_nota)
                     
                     submitted = st.form_submit_button('Atualizar Atividade')
@@ -111,6 +113,16 @@ def modulo_tarefas():
             df_t['status'] = 'Concluída'
         if 'data_entrega' not in df_t.columns:
             df_t['data_entrega'] = None
+        else:
+            def format_date(d):
+                if not d or pd.isna(d): return ""
+                try:
+                    if isinstance(d, (int, float)):
+                        return datetime.fromtimestamp(d / 1000.0).strftime('%d/%m/%Y')
+                    return datetime.fromisoformat(str(d).split('T')[0]).strftime('%d/%m/%Y')
+                except:
+                    return str(d)
+            df_t['data_entrega'] = df_t['data_entrega'].apply(format_date)
             
         cols_to_show = ['id', 'nome', 'status', 'data_entrega', 'nota']
         cols_to_show = [c for c in cols_to_show if c in df_t.columns]
