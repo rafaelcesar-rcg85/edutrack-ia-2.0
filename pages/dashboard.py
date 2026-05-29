@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+# pyrefly: ignore [missing-import]
 import plotly.express as px
 from datetime import datetime, date
 import calendar
@@ -98,9 +99,18 @@ def modulo_dashboard():
     # Remove margins superior do título pra dar mais espaço
     st.markdown("<style>.block-container{padding-top: 2rem;}</style>", unsafe_allow_html=True)
     
-    tarefas = api_get('tarefas')
-    discs = api_get('disciplinas')
+    # Busca o perfil do usuário da session state para personalização
+    profile = st.session_state.get('user_profile', {})
     
+    tarefas_gerais = api_get('tarefas')
+    course_id = st.session_state.get('active_course_id')
+    discs = api_get('disciplinas', params={'course_id': course_id} if course_id else None)
+    
+    tarefas = []
+    if tarefas_gerais and discs:
+        valid_disc_ids = [d['id'] for d in discs]
+        tarefas = [t for t in tarefas_gerais if t.get('disc_id') in valid_disc_ids]
+
     # Processar métricas
     num_discs = len(discs) if discs else 0
     concluidas = len([t for t in tarefas if t.get('status') == 'Concluída']) if tarefas else 0
@@ -130,16 +140,21 @@ def modulo_dashboard():
     upcoming_tasks.sort(key=lambda x: x['parsed_date'])
 
     col_main, col_side = st.columns([7, 3], gap="large")
-    
+
     with col_main:
+        # Personaliza o banner de boas-vindas
+        # Pega o nome do perfil (que pode ser completo) ou da sessão e extrai a primeira palavra.
+        name_for_banner = profile.get('first_name') or st.session_state.get('user_name', 'Usuário')
+        first_name = name_for_banner.split(' ')[0]
+
         # Banner
-        st.markdown("""
+        st.markdown(f"""
         <div style="background: linear-gradient(90deg, #f3f0ff 0%, #e0d8ff 100%); padding: 25px; border-radius: 15px; margin-bottom: 25px;">
-            <h2 style="color: #4a3b8c; margin-top: 0;">Bem-vindo(a) de volta!</h2>
+            <h2 style="color: #4a3b8c; margin-top: 0;">Bem-vindo(a) de volta, {first_name}!</h2>
             <p style="color: #666; margin-bottom: 0;">Acompanhe seu desempenho e mantenha o ritmo. Continue melhorando!</p>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # Métricas em "Cards"
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -200,6 +215,17 @@ def modulo_dashboard():
             st.info("Cadastre dados para visualizar seu desempenho gráfico.")
 
     with col_side:
+        # Card do Perfil do Usuário
+        if profile:
+            full_name = f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip()
+
+            if full_name:
+                st.markdown(f"""
+                <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px;">
+                    <h4 style="color: #333; margin: 0;">{full_name}</h4>
+                </div>
+                """, unsafe_allow_html=True)
+
         # Calendário
         st.subheader("Calendário")
         today = datetime.today()

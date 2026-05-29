@@ -1,0 +1,2 @@
+- [x] Criar a tabela `user_profiles` no banco de dados para armazenar `first_name`, `last_name`, `date_of_birth` e a foto.
+- [x] Criar a página de perfil no Streamlit (`pages/profile.py`) onde o usuário pode editar seus dados.

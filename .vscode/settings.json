@@ -1,6 +1,7 @@
 {
     "cSpell.language": "en,pt,pt-BR",
     "cSpell.words": [
+        "accessdenied",
         "Adicionar",
         "Cadastrar",
         "Disciplinas",
@@ -18,5 +19,8 @@
         "xano",
         "XANOSCRIPT",
         "yaxes"
-    ]
+    ],
+    "python.analysis.typeCheckingMode": "standard",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+    "xanoscript.idPrefix": false
 }
