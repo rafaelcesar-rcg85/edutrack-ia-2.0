@@ -119,10 +119,30 @@ def modulo_tarefas():
                     return str(d)
             df_t['data_entrega'] = df_t['data_entrega'].apply(format_date)
             
-        cols_to_show = ['id', 'nome', 'status', 'data_entrega', 'nota']
-        cols_to_show = [c for c in cols_to_show if c in df_t.columns]
+        # Cruzar com o DataFrame de disciplinas para obter o nome da disciplina
+        if discs:
+            df_d = pd.DataFrame(discs)
+            df_view = df_t.merge(df_d[['id', 'nome']], left_on='disc_id', right_on='id', suffixes=('', '_disc'), how='left')
+            df_view.rename(columns={'nome_disc': 'disciplina'}, inplace=True)
+        else:
+            df_view = df_t.copy()
+            df_view['disciplina'] = "Desconhecida"
+            
+        cols_to_show = ['id', 'nome', 'disciplina', 'status', 'data_entrega', 'nota']
+        cols_to_show = [c for c in cols_to_show if c in df_view.columns]
         
-        st.dataframe(df_t[cols_to_show], use_container_width=True, hide_index=True)
+        # Renomear cabeçalhos para o usuário
+        rename_map = {
+            'id': 'ID',
+            'nome': 'Atividade',
+            'disciplina': 'Disciplina',
+            'status': 'Status',
+            'data_entrega': 'Data de Entrega',
+            'nota': 'Nota'
+        }
+        df_display = df_view[cols_to_show].rename(columns=rename_map)
+        
+        st.dataframe(df_display, use_container_width=True, hide_index=True)
 
         # [D]ELETE
         id_del_t = st.number_input('ID da Tarefa para remover', min_value=1, step=1)

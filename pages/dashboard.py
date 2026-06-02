@@ -8,7 +8,10 @@ from utils.api import api_get
 
 def get_custom_calendar(year, month, task_dates):
     cal = calendar.monthcalendar(year, month)
-    month_name = calendar.month_name[month]
+    
+    meses_pt = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+    month_name = meses_pt[month]
     
     html = f"""
     <style>
@@ -72,7 +75,7 @@ def get_custom_calendar(year, month, task_dates):
     <div class="cal-container">
         <div class="cal-header">{month_name} {year}</div>
         <table class="cal-table">
-            <tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
+            <tr><th>Dom</th><th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th></tr>
     """
     
     today = date.today()
