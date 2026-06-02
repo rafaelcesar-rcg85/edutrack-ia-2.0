@@ -4,21 +4,9 @@ from datetime import datetime
 from utils.api import api_get, api_post, api_patch, api_delete
 
 def modulo_tarefas():
-    st.header('📝 Minhas Tarefas e Notas')
-    
-    course_id = st.session_state.get('active_course_id')
-    if not course_id:
-        st.warning("Selecione ou crie um curso no menu lateral para gerenciar as tarefas.")
-        return
-
-    discs = api_get('disciplinas', params={'course_id': course_id})
-    tarefas_gerais = api_get('tarefas')
-    
-    # Filtra as tarefas para mostrar apenas as que pertencem às disciplinas deste curso
-    tarefas = []
-    if tarefas_gerais and discs:
-        valid_disc_ids = [d['id'] for d in discs]
-        tarefas = [t for t in tarefas_gerais if t.get('disc_id') in valid_disc_ids]
+    st.header('Minhas Tarefas e Notas')
+    discs = api_get('disciplinas')
+    tarefas = api_get('tarefas')
 
     if not discs:
         st.warning('Cadastre uma disciplina primeiro.')
@@ -101,9 +89,6 @@ def modulo_tarefas():
                             'disc_id': opcoes_d[nova_disc],
                             'status': novo_status
                         }
-                        if 'user_id' in st.session_state:
-                            dados_update['user_id'] = st.session_state.user_id
-                            
                         if novo_status == 'Concluída':
                             dados_update['nota'] = nova_nota
                         elif novo_status == 'Para Entregar':

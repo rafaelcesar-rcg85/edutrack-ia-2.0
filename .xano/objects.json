@@ -1,44 +1,155 @@
 [
   {
-    "id": 0,
-    "path": "apis/Authentication/api_group.xs",
-    "status": "new",
-    "type": "api_group",
-    "staged": true
-  },
-  {
     "id": 844361,
     "path": "tables/courses.xs",
-    "status": "unchanged",
+    "status": "notfound",
     "type": "table",
     "staged": false,
     "sha256": "34fb8d863a2847411307823b71f7685e470b2b092f4de27a5ed2bef87fd98991",
     "original": "dGFibGUgY291cnNlcyB7CiAgYXV0aCA9IGZhbHNlCgogIHNjaGVtYSB7CiAgICAvLyBJZGVudGlmaWNhZG9yIMO6bmljbyBkbyBjdXJzbwogICAgaW50IGlkCiAgCiAgICAvLyBBbHVubyBwcm9wcmlldMOhcmlvIGRvIGN1cnNvCiAgICBpbnQgdXNlcl9pZCB7CiAgICAgIHRhYmxlID0gInVzZXIiCiAgICB9CiAgCiAgICAvLyBOb21lIGRvIGN1cnNvIG91IGluc3RpdHVpw6fDo28KICAgIHRleHQgbmFtZSBmaWx0ZXJzPXRyaW0KICAKICAgIC8vIERhdGEgZGUgY3JpYcOnw6NvIGRvIHJlZ2lzdHJvCiAgICB0aW1lc3RhbXAgY3JlYXRlZF9hdD89bm93CiAgfQoKICBpbmRleCA9IFsKICAgIHt0eXBlOiAicHJpbWFyeSIsIGZpZWxkOiBbe25hbWU6ICJpZCJ9XX0KICAgIHt0eXBlOiAiYnRyZWUiLCBmaWVsZDogW3tuYW1lOiAidXNlcl9pZCJ9XX0KICBdCn0="
   },
   {
+    "id": 836282,
+    "path": "tables/836282_professores.xs",
+    "status": "changed",
+    "type": "table",
+    "staged": true,
+    "sha256": "341879645b4cad6aa21919b1cf7901cad4e9ecafb6bfc19ee3fc2de931c79dd8",
+    "original": "dGFibGUgcHJvZmVzc29yZXMgewogIGF1dGggPSBmYWxzZQoKICBzY2hlbWEgewogICAgaW50IGlkCiAgICB0aW1lc3RhbXAgY3JlYXRlZF9hdD89bm93IHsKICAgICAgdmlzaWJpbGl0eSA9ICJwcml2YXRlIgogICAgfQogIAogICAgaW50IHVzZXJfaWQ/IHsKICAgICAgdGFibGUgPSAidXNlciIKICAgIH0KICAKICAgIHRleHQgbm9tZT8gZmlsdGVycz10cmltCiAgICBlbWFpbCBlbWFpbD8gZmlsdGVycz10cmltfGxvd2VyCiAgICBpbnQgY291cnNlc19pZD8gewogICAgICB0YWJsZSA9ICJjb3Vyc2VzIgogICAgfQogIH0KCiAgaW5kZXggPSBbCiAgICB7dHlwZTogInByaW1hcnkiLCBmaWVsZDogW3tuYW1lOiAiaWQifV19CiAgICB7dHlwZTogImJ0cmVlIiwgZmllbGQ6IFt7bmFtZTogImNyZWF0ZWRfYXQiLCBvcDogImRlc2MifV19CiAgXQp9"
+  },
+  {
+    "id": 836313,
+    "path": "tables/836313_disciplinas.xs",
+    "status": "changed",
+    "type": "table",
+    "staged": true,
+    "sha256": "dab86a37eb79aaedc3c0f8309c281e27bca466dd82f82f982b0e8e560b96ea3e",
+    "original": "dGFibGUgZGlzY2lwbGluYXMgewogIGF1dGggPSBmYWxzZQoKICBzY2hlbWEgewogICAgaW50IGlkCiAgICB0aW1lc3RhbXAgY3JlYXRlZF9hdD89bm93IHsKICAgICAgdmlzaWJpbGl0eSA9ICJwcml2YXRlIgogICAgfQogIAogICAgaW50IHVzZXJfaWQ/IHsKICAgICAgdGFibGUgPSAidXNlciIKICAgIH0KICAKICAgIGludCBwcm9mX2lkPyB7CiAgICAgIHRhYmxlID0gInByb2Zlc3NvcmVzIgogICAgfQogIAogICAgdGV4dCBub21lPyBmaWx0ZXJzPXRyaW0KICAgIGludCBjb3Vyc2VzX2lkPyB7CiAgICAgIHRhYmxlID0gImNvdXJzZXMiCiAgICB9CiAgfQoKICBpbmRleCA9IFsKICAgIHt0eXBlOiAicHJpbWFyeSIsIGZpZWxkOiBbe25hbWU6ICJpZCJ9XX0KICAgIHt0eXBlOiAiYnRyZWUiLCBmaWVsZDogW3tuYW1lOiAiY3JlYXRlZF9hdCIsIG9wOiAiZGVzYyJ9XX0KICBdCn0="
+  },
+  {
+    "id": 836322,
+    "path": "tables/836322_tarefas.xs",
+    "status": "changed",
+    "type": "table",
+    "staged": true,
+    "sha256": "585d43e05e89741fdd4acb9de9d1b3c8e31fa0f5370a2e548dce3f66b70788ca",
+    "original": "dGFibGUgdGFyZWZhcyB7CiAgYXV0aCA9IGZhbHNlCgogIHNjaGVtYSB7CiAgICBpbnQgaWQKICAgIHRpbWVzdGFtcCBjcmVhdGVkX2F0Pz1ub3cgewogICAgICB2aXNpYmlsaXR5ID0gInByaXZhdGUiCiAgICB9CiAgCiAgICBpbnQgdXNlcl9pZD8gewogICAgICB0YWJsZSA9ICJ1c2VyIgogICAgfQogIAogICAgaW50IGRpc2NfaWQ/IHsKICAgICAgdGFibGUgPSAiZGlzY2lwbGluYXMiCiAgICB9CiAgCiAgICB0ZXh0IG5vbWU/IGZpbHRlcnM9dHJpbQogICAgZGVjaW1hbCBub3RhPwogICAgdGV4dCBzdGF0dXM/IGZpbHRlcnM9dHJpbQogICAgZGF0ZT8gZGF0YV9lbnRyZWdhPwogIH0KCiAgaW5kZXggPSBbCiAgICB7dHlwZTogInByaW1hcnkiLCBmaWVsZDogW3tuYW1lOiAiaWQifV19CiAgICB7dHlwZTogImJ0cmVlIiwgZmllbGQ6IFt7bmFtZTogImNyZWF0ZWRfYXQiLCBvcDogImRlc2MifV19CiAgXQp9"
+  },
+  {
+    "id": 412354,
+    "path": "apis/rafaels_workspace/api_group.xs",
+    "status": "changed",
+    "type": "api_group",
+    "staged": true
+  },
+  {
     "id": 0,
-    "path": "apis/Authentication/get_courses.xs",
+    "path": "apis/rafaels_workspace/delete_courses.xs",
     "status": "new",
     "type": "api_endpoint",
     "staged": true
   },
   {
     "id": 0,
-    "path": "apis/Authentication/post_courses.xs",
+    "path": "apis/rafaels_workspace/delete_disciplinas.xs",
     "status": "new",
     "type": "api_endpoint",
     "staged": true
   },
   {
     "id": 0,
-    "path": "apis/Authentication/patch_courses.xs",
+    "path": "apis/rafaels_workspace/delete_professores.xs",
     "status": "new",
     "type": "api_endpoint",
     "staged": true
   },
   {
     "id": 0,
-    "path": "apis/Authentication/delete_courses.xs",
+    "path": "apis/rafaels_workspace/delete_tarefas.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/get_courses.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/get_disciplinas.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/get_professores.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/get_tarefas.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/patch_courses.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/patch_disciplinas.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/patch_professores.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/patch_tarefas.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/post_courses.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/post_disciplinas.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/post_professores.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": true
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/post_tarefas.xs",
     "status": "new",
     "type": "api_endpoint",
     "staged": true

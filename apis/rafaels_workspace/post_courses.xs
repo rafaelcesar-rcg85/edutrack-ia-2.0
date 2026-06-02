@@ -1,4 +1,5 @@
 // Cria um novo curso para o aluno autenticado
+// sALVE
 query "courses" verb=POST {
   description = "Cria um novo curso vinculado ao aluno autenticado"
   auth = "user"

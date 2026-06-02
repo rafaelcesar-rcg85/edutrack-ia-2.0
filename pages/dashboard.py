@@ -101,15 +101,13 @@ def modulo_dashboard():
     
     # Busca o perfil do usuário da session state para personalização
     profile = st.session_state.get('user_profile', {})
+    if isinstance(profile, list):
+        profile = profile[0] if len(profile) > 0 else {}
+    elif not isinstance(profile, dict):
+        profile = {}
     
-    tarefas_gerais = api_get('tarefas')
-    course_id = st.session_state.get('active_course_id')
-    discs = api_get('disciplinas', params={'course_id': course_id} if course_id else None)
-    
-    tarefas = []
-    if tarefas_gerais and discs:
-        valid_disc_ids = [d['id'] for d in discs]
-        tarefas = [t for t in tarefas_gerais if t.get('disc_id') in valid_disc_ids]
+    tarefas = api_get('tarefas')
+    discs = api_get('disciplinas')
 
     # Processar métricas
     num_discs = len(discs) if discs else 0

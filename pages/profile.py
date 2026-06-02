@@ -14,10 +14,30 @@ def perfil_usuario():
     headers = {'Authorization': f'Bearer {token}'}
 
     # Buscar dados do perfil
+    profile_data = {}
     try:
+        # Tenta a rota /me primeiro
         res = requests.get(f'{USER_PROFILES_URL}/user_profiles/me', headers=headers)
-        profile_data = (res.json() or {}) if res.status_code == 200 else {}
-    except:
+        if res.status_code == 200:
+            data = res.json()
+            if isinstance(data, list):
+                profile_data = data[0] if len(data) > 0 else {}
+            elif isinstance(data, dict):
+                profile_data = data
+        
+        # Se não encontrou ou a rota não existe, tenta buscar na listagem geral e filtrar
+        if not profile_data or res.status_code == 404:
+            res_all = requests.get(f'{USER_PROFILES_URL}/user_profiles', headers=headers)
+            if res_all.status_code == 200:
+                all_profiles = res_all.json()
+                if isinstance(all_profiles, list):
+                    # Pega o último perfil (mais recente) onde o user_id bate com o da sessão
+                    uid = st.session_state.get('user_id')
+                    matched = [p for p in all_profiles if p.get('user_id') == uid]
+                    matched = sorted(matched, key=lambda x: x.get('id', 0))
+                    if matched:
+                        profile_data = matched[-1]
+    except Exception as e:
         profile_data = {}
 
     # Buscar e-mail do usuário (tabela auth)
@@ -65,30 +85,54 @@ def perfil_usuario():
                 'last_name': last_name,
                 'date_of_birth': int(datetime.datetime.combine(date_of_birth, datetime.time.min).timestamp() * 1000)
             }
+            
+            if 'user_id' in st.session_state:
+                payload['user_id'] = st.session_state.user_id
+            
+            profile_id = profile_data.get('id')
+            if profile_id:
+                payload['user_profiles_id'] = profile_id
+                payload['id'] = profile_id
+                
             try:
-                # Enviar via JSON
-
                 save_res = requests.post(
                     f"{USER_PROFILES_URL}/user_profiles",
                     headers=headers,
                     json=payload
                 )
 
-                if save_res.status_code == 200:
+                if save_res.status_code in (200, 201):
                     st.success("Perfil atualizado com sucesso!")
 
                     # Recarregar o perfil no estado da sessão
                     try:
                         updated_res = requests.get(f"{USER_PROFILES_URL}/user_profiles/me", headers=headers)
+                        p_val = {}
                         if updated_res.status_code == 200:
-                            st.session_state.user_profile = updated_res.json()
+                            data = updated_res.json()
+                            if isinstance(data, list):
+                                p_val = data[0] if len(data) > 0 else {}
+                            elif isinstance(data, dict):
+                                p_val = data
+                                
+                        if not p_val or updated_res.status_code == 404:
+                            res_all = requests.get(f'{USER_PROFILES_URL}/user_profiles', headers=headers)
+                            if res_all.status_code == 200:
+                                all_profiles = res_all.json()
+                                if isinstance(all_profiles, list):
+                                    uid = st.session_state.get('user_id')
+                                    matched = [p for p in all_profiles if p.get('user_id') == uid]
+                                    matched = sorted(matched, key=lambda x: x.get('id', 0))
+                                    if matched:
+                                        p_val = matched[-1]
+                                        
+                        st.session_state.user_profile = p_val
                     except:
                         pass
 
                     st.rerun()
                 else:
-                    msg = save_res.json().get('message', 'Erro desconhecido ao salvar o perfil')
-                    st.error(msg)
+                    st.error(f"Erro do Xano - Status {save_res.status_code}: {save_res.text}")
 
             except Exception as e:
                 st.error(f"Erro de conexão: {str(e)}")

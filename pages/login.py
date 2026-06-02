@@ -29,11 +29,31 @@ def _do_login(email: str, senha: str) -> bool:
         st.session_state.user_name = user_data.get('name', '')
 
     # Busca e armazena o perfil do usuário na sessão
-    res_profile = requests.get(f'{USER_PROFILES_URL}/user_profiles/me', headers=headers)
-    if res_profile.status_code == 200 and res_profile.json():
-        st.session_state.user_profile = res_profile.json()
-    else:
-        st.session_state.user_profile = {}
+    p_val = {}
+    try:
+        res_profile = requests.get(f'{USER_PROFILES_URL}/user_profiles/me', headers=headers)
+        if res_profile.status_code == 200 and res_profile.json():
+            data = res_profile.json()
+            if isinstance(data, list):
+                p_val = data[0] if len(data) > 0 else {}
+            elif isinstance(data, dict):
+                p_val = data
+                
+        if not p_val or res_profile.status_code == 404:
+            res_all = requests.get(f'{USER_PROFILES_URL}/user_profiles', headers=headers)
+            if res_all.status_code == 200:
+                all_profiles = res_all.json()
+                if isinstance(all_profiles, list):
+                    uid = st.session_state.get('user_id')
+                    matched = [p for p in all_profiles if p.get('user_id') == uid]
+                    # Ordenar por ID para garantir a ordem (o maior ID é o mais recente)
+                    matched = sorted(matched, key=lambda x: x.get('id', 0))
+                    if matched:
+                        p_val = matched[-1]
+    except Exception:
+        pass
+        
+    st.session_state.user_profile = p_val
 
     st.session_state.auth_token = token
     st.session_state.logged_in = True
@@ -49,13 +69,30 @@ def _criar_perfil(token: str, first_name: str) -> None:
 
     # Verifica se o perfil já existe
     res_check = requests.get(f'{USER_PROFILES_URL}/user_profiles/me', headers=headers)
-    perfil_existente = (res_check.status_code == 200 and res_check.json() is not None)
+    perfil_existente = False
+    if res_check.status_code == 200:
+        val = res_check.json()
+        # Se retornar um registro ou um array não-vazio, o perfil existe
+        if val and (not isinstance(val, list) or len(val) > 0):
+            perfil_existente = True
 
     if not perfil_existente:
+        user_id = None
+        try:
+            res_me = requests.get(f'{BASE_URL}/auth/me', headers=headers)
+            if res_me.status_code == 200:
+                user_id = res_me.json().get('id')
+        except:
+            pass
+
+        payload = {'first_name': first_name, 'last_name': ''}
+        if user_id:
+            payload['user_id'] = user_id
+
         profile_res = requests.post(
             f'{USER_PROFILES_URL}/user_profiles',
             headers=headers,
-            json={'first_name': first_name, 'last_name': ''}
+            json=payload
         )
         if profile_res.status_code not in (200, 201):
             # Log para debugging — não bloqueia o login
