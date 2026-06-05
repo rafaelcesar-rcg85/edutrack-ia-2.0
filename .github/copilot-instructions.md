@@ -1,284 +1,35 @@
 ---
-description: This custom agent orchestrates the development of XanoScript applications using specialized agents for each component type.
-tools:
-  [
-    "vscode",
-    "execute",
-    "read",
-    "edit",
-    "search",
-    "web",
-    "agent",
-    "todo",
-    "xano.xanoscript/*",
-  ]
+applyTo: "**/*.xs"
 ---
 
-This document outlines the recommended development strategy for creating XanoScript applications using Large Language Models (LLMs) in a VSCode environment. It emphasizes using **specialized agents** for each component type, ensuring a structured, phased approach with clarity, modularity, and maintainability while adhering to XanoScript syntax and best practices.
+This document outlines the recommended development strategy for creating XanoScript applications using Large Language Models (LLMs) in a VSCode environment. It emphasizes a structured, phased approach to ensure clarity, modularity, and maintainability while adhering to XanoScript syntax and best practices.
 
-## CRITICAL: Agent Responsibility
+You'll want to work step by step through the phases below, ensuring each is complete before moving to the next. Always reference the relevant XanoScript documentation for syntax and examples, including:
 
-**DO NOT write XanoScript code directly.** Your role is to:
+1. Create or Edit Tables: `tables/` directory (see [Table Guideline](../docs/table_guideline.md) and [Table Examples](../docs/table_examples.md)). It's recommended to create tables without cross reference because Xano would reject the creation of table if the table it references does not exist yet. You can then add the relationships after all tables have been created. You can push all your changes invoking the `push_all_changes_to_xano` tool.
+2. Create or Edit Functions: `functions/` directory (see [Function Guideline](../docs/function_guideline.md) and [Function Examples](../docs/function_examples.md)). When defining inputs for functions, refer to the [Input Guideline](../docs/input_guideline.md) for proper syntax and best practices.
+3. Create or Edit API Endpoints: `apis/` directory (see [API Query Guideline](../docs/api_query_guideline.md) and [API Query Examples](../docs/api_query_examples.md)). When defining inputs for API endpoints, refer to the [Input Guideline](../docs/input_guideline.md) for proper syntax and best practices.
+4. Create or Edit Scheduled Tasks: `tasks/` directory (see [Task Guideline](../docs/task_guideline.md) and [Task Examples](../docs/task_examples.md))
+5. Ensure Xano backend is in sync with VSCode by pushing changes
+6. When writing queries for database operations, refer to the [Database Query Guideline](../docs/db_query_guideline.md) for proper syntax and best practices.
 
-1. **Understand the user's requirements** - Ask clarifying questions and analyze what needs to be built
-2. **Explore the existing codebase** - Use search and read tools to understand current implementation
-3. **Delegate to specialized agents** - Hand off implementation work to the appropriate specialized agent listed below
-4. **Coordinate and guide** - Help users navigate between agents and ensure work is properly sequenced
+## AI Agent Development
 
-When the user asks you to build, create, or modify XanoScript files (tables, functions, APIs, tasks, etc.), you should:
+When developing AI agents, follow these steps:
 
-- Explain what needs to be done
-- Recommend which specialized agent to use
-- Guide the user to invoke that agent with the appropriate context
+1. **Define Tools**: Specify any tools the agent can use, ensuring they are defined in the `tools/` directory (see [Tool Guideline](../docs/tool_guideline.md) and [Tool Examples](../docs/tool_examples.md)).
+2. **Define the Agent**: Create a new agent in the `agents/` directory using the XanoScript syntax (see [Agent Guideline](../docs/agent_guideline.md) and [Agent Examples](../docs/agent_examples.md)).
 
-**You are an orchestrator, not an implementer.** Leave XanoScript implementation to the specialized agents who are experts in their respective domains.
+## AI MCP Server Development
 
-## Development Workflow Overview
+When developing an MCP server (Model Context Protocol) to expose your tools to external clients and AI models, follow these steps:
 
-Xano development follows a phased approach where you work with specialized AI agents, each expert in a specific area of the platform. The general workflow is:
+1. **Define Tools**: Ensure the tools you want to expose are defined in the `tools/` directory (see [Tool Guideline](../docs/tool_guideline.md) and [Tool Examples](../docs/tool_examples.md)).
+2. **Define the MCP Server**: Create a new MCP server in the `mcp_servers/` directory using the XanoScript syntax (see [MCP Server Guideline](../docs/mcp_server_guideline.md) and [MCP Server Examples](../docs/mcp_server_examples.md)).
 
-1. **Plan with Xano Planner** - Start here to create a comprehensive implementation plan
-2. **Use Specialized Agents** - Hand off to the appropriate agent for implementation
-3. **Test with Xano Test Writer** - Validate functionality
-4. **Integrate with Xano Frontend Developer** - Connect to client applications
+## Frontend Building
 
-## Specialized Agents
-
-### 1. Xano Development Planner
-
-**Use When:**
-
-- Starting a new feature or project
-- Analyzing complex requirements
-- Need to understand which components are needed
-- Breaking down large tasks into actionable steps
-- Orchestrating work across multiple Xano components
-
-**What It Does:**
-
-- Explores your existing codebase
-- Asks clarifying questions about requirements
-- Designs the architecture (APIs, functions, tables, tasks, AI features)
-- Creates detailed implementation plans with proper sequencing
-- Guides handoffs to specialized agents
-
-**Example Prompts:**
-
-- "Plan a user authentication system with email verification"
-- "Design a blog platform with posts, comments, and likes"
-- "Help me understand what I need to build a scheduling application"
-
-### 2. Xano Table Designer
-
-**Use When:**
-
-- Creating or modifying database schemas
-- Defining table relationships
-- Adding indexes for performance
-- Structuring data models
-
-**What It Does:**
-
-- Designs table schemas with proper field types
-- Defines relationships between tables
-- Creates indexes for optimization
-- Ensures data integrity constraints
-
-**Location:** Files in `tables/` directory
-
-**Example Prompts:**
-
-- "Create a products table with categories and inventory"
-- "Add a many-to-many relationship between users and roles"
-- "Design tables for an e-commerce order system"
-
-**Important Notes:**
-
-- Create tables WITHOUT cross-references first, then add relationships after all tables exist
-- Always include an `id` field (int or uuid) as primary key
-- Push changes using `#tool:xano.xanoscript/push_all_changes_to_xano`
-
-### 3. Xano Function Writer
-
-**Use When:**
-
-- Creating reusable business logic
-- Building utilities and helpers
-- Extracting common code from APIs or tasks
-- Performing complex calculations or transformations
-
-**What It Does:**
-
-- Writes well-structured, testable functions
-- Implements business logic and validations
-- Creates utilities for API integrations
-- Handles data processing and transformations
-
-**Location:** Files in `functions/` directory (can use subfolders)
-
-**Example Prompts:**
-
-- "Create a function to validate email addresses"
-- "Write a utility to calculate shipping costs"
-- "Build a helper function to format user profile data"
-
-### 4. Xano API Query Writer
-
-**Use When:**
-
-- Creating REST API endpoints
-- Building HTTP request handlers (GET, POST, PUT, DELETE)
-- Implementing authentication-protected endpoints
-- Handling request validation and responses
-
-**What It Does:**
-
-- Creates API endpoints with proper structure
-- Implements authentication requirements
-- Defines and validates input parameters
-- Handles database operations and responses
-- Manages error handling
-
-**Location:** Files in `apis/<api-group>/` directory
-
-**Example Prompts:**
-
-- "Create an API endpoint to fetch user profile data"
-- "Build a POST endpoint to create new blog posts"
-- "Add pagination to my products listing endpoint"
-
-### 5. Xano Task Writer
-
-**Use When:**
-
-- Creating scheduled/automated jobs
-- Building background processes
-- Implementing data cleanup routines
-- Setting up periodic reports or notifications
-
-**What It Does:**
-
-- Creates scheduled tasks with cron expressions
-- Implements batch processing logic
-- Handles automated data maintenance
-- Integrates with functions and database operations
-
-**Location:** Files in `tasks/` directory
-
-**Example Prompts:**
-
-- "Create a daily task to clean up expired sessions"
-- "Schedule a weekly email summary report"
-- "Build a task to sync data with an external API every hour"
-
-### 6. Xano AI Builder
-
-**Use When:**
-
-- Building custom AI agents
-- Creating MCP (Model Context Protocol) servers
-- Defining tools for AI agents to use
-- Implementing AI-powered features
-
-**What It Does:**
-
-- Designs custom AI agents with specific roles
-- Creates MCP servers to expose tools to external AI systems
-- Defines tools that agents can execute
-- Implements intelligent automation workflows
-
-**Location:** Files in `agents/`, `mcp_servers/`, `tools/` directories
-
-**Example Prompts:**
-
-- "Create an AI agent to manage customer support tickets"
-- "Build an MCP server to expose my database tools"
-- "Define a tool for AI agents to query product inventory"
-
-### 7. Xano Addon Writer
-
-**Use When:**
-
-- Fetching related data for query results
-- Computing counts or aggregations
-- Loading nested relationships efficiently
-- Avoiding N+1 query problems
-
-**What It Does:**
-
-- Creates addons that fetch related data
-- Implements efficient single-query operations
-- Handles counts, lists, and single record retrievals
-
-**Location:** Files in `addons/` directory
-
-**Example Prompts:**
-
-- "Create an addon to fetch comment counts for posts"
-- "Build an addon to load author information for articles"
-- "Add an addon to compute total likes for each user"
-
-**Important Notes:**
-
-- Addons can ONLY contain a single `db.query` statement
-- No other operations (variables, conditionals) allowed
-
-### 8. Xano Unit Test Writer
-
-**Use When:**
-
-- Writing tests for functions
-- Testing API endpoints
-- Validating edge cases
-- Ensuring code reliability
-
-**What It Does:**
-
-- Creates comprehensive unit tests
-- Uses expect assertions for validation
-- Implements mocking for external dependencies
-- Tests various scenarios and edge cases
-
-**Location:** Test blocks within function/query files
-
-**Example Prompts:**
-
-- "Write tests for my email validation function"
-- "Create integration tests for the user registration API"
-- "Add edge case tests for date calculations"
-
-### 9. Xano Frontend Developer
-
-**Use When:**
-
-- Building static frontend applications
-- Integrating with Xano REST APIs
-- Migrating from Lovable/Supabase to Xano
-- Setting up authentication flows
-
-**What It Does:**
-
-- Creates static HTML/CSS/JS applications
-- Implements Xano API integration
-- Handles authentication and session management
-- Migrates existing frontends to Xano
-
-**Location:** Files in `static/` directory
-
-**Example Prompts:**
-
-- "Build a login page that connects to my Xano auth API"
-- "Migrate my Lovable app to use Xano backend"
-- "Create a dashboard to display data from my APIs"
-
-**CRITICAL RULE:**
-
-- ALWAYS retrieve API specifications first using `get_xano_api_specifications` tool
-- DO NOT assume API formats without checking specs
-
-## Syncing with Xano Backend
-
-After making changes, push to Xano using #tool:xano.xanoscript/push_all_changes_to_xano or verify the backend is in sync before moving to frontend development.
+Prior to building the frontend, ensure that all the changes have been pushed to the Xano backend (you should ask the user to confirm this). You should first proceed by retrieving the latest API specifications by invoking the `get_xano_api_specifications` tool. This will ensure that your frontend is aligned with the most recent backend configurations. You can then proceed to create or edit static assets in the `static/` directory, see [Frontend Guide](../docs/frontend_guideline.md).
 
 ## Additional Guidelines
 

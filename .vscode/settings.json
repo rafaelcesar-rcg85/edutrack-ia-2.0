@@ -1,9 +1,26 @@
 {
     "cSpell.language": "en,pt,pt-BR",
     "cSpell.words": [
-        "Listar",
-        "Disciplinas",
+        "accessdenied",
+        "Adicionar",
         "Cadastrar",
-        "Matéria"
-    ]
+        "Disciplinas",
+        "EDUTRACK",
+        "ELETE",
+        "gemini",
+        "Listar",
+        "Matéria",
+        "opcao",
+        "opcoes",
+        "openspec",
+        "PDATE",
+        "Streamlit",
+        "usuario",
+        "xano",
+        "XANOSCRIPT",
+        "yaxes"
+    ],
+    "python.analysis.typeCheckingMode": "standard",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+    "xanoscript.idPrefix": false
 }
