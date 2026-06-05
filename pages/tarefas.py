@@ -2,24 +2,44 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from utils.api import api_get, api_post, api_patch, api_delete
+@st.dialog("Confirmar Exclusão")
+def confirm_delete_tarefa(tarefa_id):
+    st.error("Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita.")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button('Voltar / Cancelar', use_container_width=True):
+            st.rerun()
+    with col2:
+        if st.button('Confirmar Exclusão', type='primary', use_container_width=True):
+            res_del = api_delete('tarefas', tarefa_id)
+            if res_del.status_code == 200:
+                st.success("Tarefa removida com sucesso!")
+                st.rerun()
+            else:
+                st.error(f"Erro ao remover: {res_del.text}")
 
 def modulo_tarefas():
     st.header('Minhas Tarefas e Notas')
     discs = api_get('disciplinas')
+    cursos = api_get('curso')
     tarefas = api_get('tarefas')
 
-    if not discs:
-        st.warning('Cadastre uma disciplina primeiro.')
+    if not discs or not cursos:
+        st.warning('Cadastre uma disciplina e um curso primeiro.')
         return
 
     # Mapeamentos para dropdowns
     opcoes_d = {d['nome']: d['id'] for d in discs}
     d_inverso = {d['id']: d['nome'] for d in discs}
+    
+    opcoes_c = {c.get('curso', c.get('name', 'Sem Nome')): c['id'] for c in cursos}
+    c_inverso = {c['id']: c.get('curso', c.get('name', 'Sem Nome')) for c in cursos}
 
     # [C]REATE
     with st.expander('➕ Lançar Atividade/Nota'):
         nome_t = st.text_input('Nome da Atividade')
         d_escolhida = st.selectbox('Selecione a Disciplina', options=list(opcoes_d.keys()))
+        c_escolhido = st.selectbox('Curso Pertencente', options=list(opcoes_c.keys()))
         
         status = st.selectbox('Status', options=['Concluída', 'Para Entregar'])
         data_entrega = None
@@ -32,6 +52,7 @@ def modulo_tarefas():
             dados = {
                 'nome': nome_t, 
                 'disc_id': opcoes_d[d_escolhida], 
+                'curso_id': opcoes_c[c_escolhido],
                 'status': status
             }
             if 'user_id' in st.session_state:
@@ -61,6 +82,10 @@ def modulo_tarefas():
                 def_nome = t_atual.get('nome', '')
                 def_disc_id = t_atual.get('disc_id')
                 def_disc_nome = d_inverso.get(def_disc_id) if def_disc_id in d_inverso else list(opcoes_d.keys())[0]
+                
+                def_curso_id = t_atual.get('curso_id')
+                def_curso_nome = c_inverso.get(def_curso_id) if def_curso_id in c_inverso else list(opcoes_c.keys())[0]
+                
                 def_status = t_atual.get('status', 'Concluída')
                 def_nota = float(t_atual.get('nota', 0.0)) if t_atual.get('nota') is not None else 0.0
                 
@@ -76,6 +101,9 @@ def modulo_tarefas():
                     index_disc = list(opcoes_d.keys()).index(def_disc_nome) if def_disc_nome in opcoes_d else 0
                     nova_disc = st.selectbox('Disciplina', options=list(opcoes_d.keys()), index=index_disc)
                     
+                    index_curso = list(opcoes_c.keys()).index(def_curso_nome) if def_curso_nome in opcoes_c else 0
+                    novo_curso = st.selectbox('Curso Pertencente', options=list(opcoes_c.keys()), index=index_curso)
+                    
                     index_status = 1 if def_status == 'Para Entregar' else 0
                     novo_status = st.selectbox('Status', options=['Concluída', 'Para Entregar'], index=index_status)
                     
@@ -87,8 +115,11 @@ def modulo_tarefas():
                         dados_update = {
                             'nome': novo_nome,
                             'disc_id': opcoes_d[nova_disc],
+                            'curso_id': opcoes_c[novo_curso],
                             'status': novo_status
                         }
+                        if 'user_id' in st.session_state:
+                            dados_update['user_id'] = st.session_state.user_id
                         if novo_status == 'Concluída':
                             dados_update['nota'] = nova_nota
                         elif novo_status == 'Para Entregar':
@@ -100,6 +131,10 @@ def modulo_tarefas():
                             st.rerun()
                         else:
                             st.error(f"Erro ao atualizar: {res_patch.text}")
+                
+                st.markdown("---")
+                if st.button('🗑️ Remover Tarefa', type='primary', use_container_width=True):
+                    confirm_delete_tarefa(t_atual['id'])
 
     # [R]EAD
     if tarefas:
@@ -128,13 +163,24 @@ def modulo_tarefas():
             df_view = df_t.copy()
             df_view['disciplina'] = "Desconhecida"
             
-        cols_to_show = ['id', 'nome', 'disciplina', 'status', 'data_entrega', 'nota']
+        if cursos:
+            df_c = pd.DataFrame(cursos)
+            if not df_c.empty and 'curso_id' in df_view.columns:
+                df_c['nome_curso'] = df_c.apply(lambda row: row.get('curso', row.get('name', 'Sem Nome')), axis=1)
+                df_view = df_view.merge(df_c[['id', 'nome_curso']], left_on='curso_id', right_on='id', suffixes=('', '_curso'), how='left')
+            else:
+                df_view['nome_curso'] = 'N/A'
+        else:
+            df_view['nome_curso'] = 'N/A'
+            
+        cols_to_show = ['id', 'nome', 'nome_curso', 'disciplina', 'status', 'data_entrega', 'nota']
         cols_to_show = [c for c in cols_to_show if c in df_view.columns]
         
         # Renomear cabeçalhos para o usuário
         rename_map = {
             'id': 'ID',
             'nome': 'Atividade',
+            'nome_curso': 'Curso',
             'disciplina': 'Disciplina',
             'status': 'Status',
             'data_entrega': 'Data de Entrega',
@@ -144,13 +190,6 @@ def modulo_tarefas():
         
         st.dataframe(df_display, use_container_width=True, hide_index=True)
 
-        # [D]ELETE
-        id_del_t = st.number_input('ID da Tarefa para remover', min_value=1, step=1)
-        if st.button('Remover Tarefa'):
-            res_del = api_delete('tarefas', id_del_t)
-            if res_del.status_code == 200:
-                st.rerun()
-            else:
-                st.error(f"Erro ao remover: {res_del.text}")
+
 
 modulo_tarefas()

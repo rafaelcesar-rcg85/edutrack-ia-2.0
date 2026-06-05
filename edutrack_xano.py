@@ -21,6 +21,7 @@ def logout():
 # ==========================================
 login_page = st.Page("pages/login.py", title="Acesso", icon="🔑")
 dashboard_page = st.Page("pages/dashboard.py", title="Painel Geral", icon="📊")
+cursos_page = st.Page("pages/cursos.py", title="Cursos", icon="🎓")
 professores_page = st.Page("pages/professores.py", title="Professores", icon="👨‍🏫")
 disciplinas_page = st.Page("pages/disciplinas.py", title="Disciplinas", icon="📚")
 tarefas_page = st.Page("pages/tarefas.py", title="Tarefas/Notas", icon="📝")
@@ -39,7 +40,7 @@ else:
         st.title('EduTrack AI')
         if st.button('Sair'):
             logout()
-    pg = st.navigation([dashboard_page, professores_page, disciplinas_page, tarefas_page, relatorios_page, profile_page])
+    pg = st.navigation([dashboard_page, cursos_page, professores_page, disciplinas_page, tarefas_page, relatorios_page, profile_page])
 
 # Inicia o roteador de páginas
 pg.run()
