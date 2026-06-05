@@ -26,9 +26,11 @@ def modulo_cursos():
         nome = st.text_input('Nome do Curso / Instituição')
         col1, col2 = st.columns(2)
         with col1:
-            data_inicio = st.date_input('Data de Início', key='create_data_inicio')
+            data_inicio = st.date_input('Data de Início', key='create_data_inicio', format="DD/MM/YYYY")
         with col2:
-            data_fim = st.date_input('Data de Fim', key='create_data_fim')
+            data_fim = st.date_input('Data de Fim', key='create_data_fim', format="DD/MM/YYYY")
+            
+        status = st.selectbox('Status', options=["matriculado", "cursando", "formado"], key='create_status')
         
         if st.button('Cadastrar Curso'):
             if nome:
@@ -36,7 +38,8 @@ def modulo_cursos():
                     'name': nome,
                     'curso': nome, 
                     'data_inicio': data_inicio.isoformat() if data_inicio else None, 
-                    'data_fim': data_fim.isoformat() if data_fim else None
+                    'data_fim': data_fim.isoformat() if data_fim else None,
+                    'status': status
                 }
                 if 'user_id' in st.session_state:
                     dados_curso['user_id'] = st.session_state.user_id
@@ -57,6 +60,7 @@ def modulo_cursos():
             if c_escolhido_str:
                 c_atual = opcoes_c[c_escolhido_str]
                 def_nome = c_atual.get('curso', c_atual.get('name', ''))
+                def_status = c_atual.get('status', 'matriculado')
                 
                 # Conversão segura de datas para o st.date_input
                 try:
@@ -72,16 +76,21 @@ def modulo_cursos():
                     novo_nome = st.text_input('Nome do Curso', value=def_nome)
                     col1, col2 = st.columns(2)
                     with col1:
-                        novo_data_inicio = st.date_input('Data de Início', value=def_data_inicio)
+                        novo_data_inicio = st.date_input('Data de Início', value=def_data_inicio, format="DD/MM/YYYY")
                     with col2:
-                        novo_data_fim = st.date_input('Data de Fim', value=def_data_fim)
+                        novo_data_fim = st.date_input('Data de Fim', value=def_data_fim, format="DD/MM/YYYY")
+                        
+                    opcoes_status = ["matriculado", "cursando", "formado"]
+                    idx_status = opcoes_status.index(def_status) if def_status in opcoes_status else 0
+                    novo_status = st.selectbox('Status', options=opcoes_status, index=idx_status, key=f"status_{c_atual['id']}")
                     
                     if st.form_submit_button('Atualizar Curso'):
                         dados_update = {
                             'name': novo_nome,
                             'curso': novo_nome,
                             'data_inicio': novo_data_inicio.isoformat() if novo_data_inicio else None,
-                            'data_fim': novo_data_fim.isoformat() if novo_data_fim else None
+                            'data_fim': novo_data_fim.isoformat() if novo_data_fim else None,
+                            'status': novo_status
                         }
                         if 'user_id' in st.session_state:
                             dados_update['user_id'] = st.session_state.user_id
@@ -101,14 +110,27 @@ def modulo_cursos():
         df = pd.DataFrame(cursos)
         st.subheader('Seus Cursos Cadastrados')
         
+        def format_date(d):
+            if not d or pd.isna(d): return ""
+            try:
+                return datetime.datetime.fromisoformat(str(d).split('T')[0]).strftime('%d/%m/%Y')
+            except:
+                return str(d)
+                
+        if 'data_inicio' in df.columns:
+            df['data_inicio'] = df['data_inicio'].apply(format_date)
+        if 'data_fim' in df.columns:
+            df['data_fim'] = df['data_fim'].apply(format_date)
+        
         # Renomear colunas para exibição
-        cols_to_show = ['id', 'curso', 'name', 'data_inicio', 'data_fim']
+        cols_to_show = ['id', 'curso', 'name', 'status', 'data_inicio', 'data_fim']
         cols_to_show = [c for c in cols_to_show if c in df.columns]
         
         rename_map = {
             'id': 'ID',
             'curso': 'Nome do Curso',
             'name': 'Nome do Curso',
+            'status': 'Status',
             'data_inicio': 'Data de Início',
             'data_fim': 'Data de Fim'
         }
