@@ -147,9 +147,13 @@ def modulo_relatorios():
                     x='Disciplina', 
                     y='Média de Notas',
                     color='Média de Notas',
-                    color_continuous_scale='Purples',
+                    color_continuous_scale=px.colors.sequential.Purples[2:], # Evitar o tom mais claro
                     title='Média de Notas por Disciplina'
                 )
+                
+                # Adicionando um contorno (borda) nas colunas para garantir que mesmo cores claras fiquem visíveis
+                fig_bar.update_traces(marker_line_color='#4a3b8c', marker_line_width=1.5)
+                
                 fig_bar.update_layout(
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",

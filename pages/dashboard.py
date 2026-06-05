@@ -194,11 +194,26 @@ def modulo_dashboard():
                 df_plot = df_plot[df_plot['status'] == 'Concluída']
                 
             if not df_plot.empty:
-                # Ordenar pelo ID para simular uma linha do tempo
-                df_plot = df_plot.sort_values(by='id_t')
+                # Opções de visualização para o usuário (Tipo e Ordem)
+                col_chart_type, col_sort = st.columns(2)
+                with col_chart_type:
+                    tipo_grafico = st.selectbox("Escolha o tipo de gráfico", ["Linha", "Barra", "Dispersão"])
+                with col_sort:
+                    ordem_grafico = st.selectbox("Ordem de Exibição", ["Cronológica", "Alfabética"])
                 
-                # Gráfico de Linhas
-                fig = px.line(df_plot, x='nome_t', y='nota', color='nome_d', markers=True)
+                # Ordenar o dataframe com base na escolha
+                if ordem_grafico == "Cronológica":
+                    df_plot = df_plot.sort_values(by='id_t')
+                else:
+                    df_plot = df_plot.sort_values(by='nome_t')
+                
+                if tipo_grafico == "Linha":
+                    fig = px.line(df_plot, x='nome_t', y='nota', color='nome_d', markers=True)
+                elif tipo_grafico == "Barra":
+                    fig = px.bar(df_plot, x='nome_t', y='nota', color='nome_d', barmode='group')
+                elif tipo_grafico == "Dispersão":
+                    fig = px.scatter(df_plot, x='nome_t', y='nota', color='nome_d', size='nota')
+                
                 fig.update_layout(
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",
@@ -208,7 +223,9 @@ def modulo_dashboard():
                     margin=dict(l=0, r=0, t=20, b=0),
                     yaxis=dict(gridcolor='#eee', range=[0, 10])
                 )
-                fig.update_traces(line=dict(width=3), marker=dict(size=8))
+                if tipo_grafico == "Linha":
+                    fig.update_traces(line=dict(width=3), marker=dict(size=8))
+                
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("Cadastre notas nas atividades concluídas para visualizar o gráfico.")
