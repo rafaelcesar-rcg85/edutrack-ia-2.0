@@ -28,6 +28,10 @@ tarefas_page = st.Page("pages/tarefas.py", title="Tarefas/Notas", icon="📝")
 relatorios_page = st.Page("pages/relatorios.py", title="Relatórios", icon="📋")
 profile_page = st.Page("pages/profile.py", title="Meu Perfil", icon="👤")
 
+# Páginas de Administração
+admin_list_page = st.Page("pages/admin_list.py", title="Lista de Usuários", icon="👥")
+admin_manage_page = st.Page("pages/admin_manage.py", title="Gerenciar Usuário", icon="⚙️")
+admin_delete_page = st.Page("pages/admin_delete.py", title="Excluir Conta", icon="🗑️")
 # ==========================================
 # 4. CONTROLE DE NAVEGAÇÃO
 # ==========================================
@@ -40,7 +44,14 @@ else:
         st.title('EduTrack AI')
         if st.button('Sair'):
             logout()
-    pg = st.navigation([dashboard_page, cursos_page, professores_page, disciplinas_page, tarefas_page, relatorios_page, profile_page])
+    pages = {
+        "": [dashboard_page, cursos_page, professores_page, disciplinas_page, tarefas_page, relatorios_page, profile_page]
+    }
+    
+    if st.session_state.get('user_role') == 'admin':
+        pages["Administração"] = [admin_list_page, admin_manage_page, admin_delete_page]
+        
+    pg = st.navigation(pages)
 
 # Inicia o roteador de páginas
 pg.run()

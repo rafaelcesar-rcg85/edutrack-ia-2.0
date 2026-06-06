@@ -27,6 +27,8 @@ def _do_login(email: str, senha: str) -> bool:
         st.session_state.user_id = user_data.get('id')
         # Guarda o nome do usuário para exibir na UI
         st.session_state.user_name = user_data.get('name', '')
+        # Guarda o papel do usuário
+        st.session_state.user_role = user_data.get('role', 'user')
 
     # Busca e armazena o perfil do usuário na sessão
     p_val = {}
@@ -121,39 +123,46 @@ def tela_acesso():
             nome = st.text_input('Nome')
             email_c = st.text_input('E-mail')
             pass_c = st.text_input('Senha', type='password')
+            pass_confirm = st.text_input('Confirmar Senha', type='password')
 
             if st.form_submit_button('Cadastrar'):
-                res = requests.post(
-                    f'{BASE_URL}/auth/signup',
-                    json={'name': nome, 'email': email_c, 'password': pass_c}
-                )
-
-                if res.status_code == 200:
-                    # Login automático após cadastro — melhor UX e garante vinculação do perfil
-                    login_res = requests.post(
-                        f'{BASE_URL}/auth/login',
-                        json={'email': email_c, 'password': pass_c}
+                if not pass_c:
+                    st.error("A senha não pode ser vazia.")
+                elif pass_c != pass_confirm:
+                    st.error("As senhas não coincidem. Tente novamente.")
+                else:
+                    res = requests.post(
+                        f'{BASE_URL}/auth/signup',
+                        json={'name': nome, 'email': email_c, 'password': pass_c, 'role': 'user'}
                     )
 
-                    if login_res.status_code == 200:
-                        token_novo = login_res.json().get('authToken')
+                    if res.status_code == 200:
+                        # Login automático após cadastro — melhor UX e garante vinculação do perfil
+                        login_res = requests.post(
+                            f'{BASE_URL}/auth/login',
+                            json={'email': email_c, 'password': pass_c}
+                        )
 
-                        # Cria o perfil com o nome digitado no cadastro
-                        # O Xano vincula ao usuário via $auth.id (token JWT)
-                        _criar_perfil(token_novo, first_name=nome)
+                        if login_res.status_code == 200:
+                            token_novo = login_res.json().get('authToken')
 
-                        # Loga automaticamente para não precisar refazer o login
-                        if _do_login(email_c, pass_c):
-                            st.success(f'Bem-vindo, {nome}! Sua conta foi criada com sucesso.')
-                            st.rerun()
+                            # Cria o perfil com o nome digitado no cadastro
+                            # O Xano vincula ao usuário via $auth.id (token JWT)
+                            _criar_perfil(token_novo, first_name=nome)
+
+                            # Loga automaticamente para não precisar refazer o login
+                            if _do_login(email_c, pass_c):
+                                st.success(f'Bem-vindo, {nome}! Sua conta foi criada com sucesso.')
+                                st.rerun()
+                        else:
+                            st.success('Conta criada! Agora faça o login.')
                     else:
-                        st.success('Conta criada! Agora faça o login.')
-                else:
-                    try:
-                        error_msg = res.json().get('message', 'Erro ao cadastrar usuário.')
-                    except Exception:
-                        error_msg = 'Erro ao cadastrar usuário.'
-                    st.error(f'Erro no cadastro: {error_msg}')
+                        try:
+                            error_msg = res.json().get('message', 'Erro ao cadastrar usuário.')
+                        except Exception:
+                            error_msg = 'Erro ao cadastrar usuário.'
+                        st.error(f'Erro no cadastro: {error_msg}')
 
 
 tela_acesso()
+

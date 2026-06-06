@@ -94,3 +94,51 @@ def api_delete(endpoint, id):
             text = "Serviço Indisponível"
             def json(self): return {"message": self.text}
         return MockResponse()
+
+# --- Funções Administrativas ---
+
+ADMIN_BASE_URL = 'https://x8ki-letl-twmt.n7.xano.io/api:6_aEAYGN'
+
+def api_get_users():
+    '''Retorna todos os usuários (requer permissão de admin).'''
+    try:
+        res = requests.get(f'{ADMIN_BASE_URL}/users', headers=get_headers())
+        return res.json() if res.status_code == 200 else []
+    except Exception:
+        return []
+
+def api_change_role(user_id, role):
+    '''Altera o papel (role) de um usuário.'''
+    try:
+        return requests.patch(f'{ADMIN_BASE_URL}/user_role/{user_id}', json={'role': role}, headers=get_headers())
+    except requests.exceptions.RequestException:
+        class MockResponse:
+            status_code = 503
+        return MockResponse()
+
+def api_change_email(user_id, email):
+    '''Altera o email de um usuário.'''
+    try:
+        return requests.patch(f'{ADMIN_BASE_URL}/user_email/{user_id}', json={'email': email}, headers=get_headers())
+    except requests.exceptions.RequestException:
+        class MockResponse:
+            status_code = 503
+        return MockResponse()
+
+def api_change_password(user_id, password):
+    '''Altera a senha de um usuário.'''
+    try:
+        return requests.patch(f'{ADMIN_BASE_URL}/user_password/{user_id}', json={'password': password}, headers=get_headers())
+    except requests.exceptions.RequestException:
+        class MockResponse:
+            status_code = 503
+        return MockResponse()
+
+def api_delete_user(user_id):
+    '''Deleta a conta de um usuário (com cascata local).'''
+    try:
+        return requests.delete(f'{ADMIN_BASE_URL}/user/{user_id}', headers=get_headers())
+    except requests.exceptions.RequestException:
+        class MockResponse:
+            status_code = 503
+        return MockResponse()
