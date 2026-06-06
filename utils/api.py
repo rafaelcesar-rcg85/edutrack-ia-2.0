@@ -107,6 +107,22 @@ def api_get_users():
     except Exception:
         return []
 
+def api_get_login_stats():
+    '''Retorna frequência de logins por usuário a partir do event_log.'''
+    try:
+        res = requests.get(f'{ADMIN_BASE_URL}/login_stats', headers=get_headers())
+        return res.json() if res.status_code == 200 else []
+    except Exception:
+        return []
+
+def api_get_all_events():
+    '''Retorna todos os eventos do event_log para análise administrativa.'''
+    try:
+        res = requests.get(f'{ADMIN_BASE_URL}/event_log_all', headers=get_headers())
+        return res.json() if res.status_code == 200 else []
+    except Exception:
+        return []
+
 def api_change_role(user_id, role):
     '''Altera o papel (role) de um usuário.'''
     try:

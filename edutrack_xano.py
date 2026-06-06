@@ -32,6 +32,7 @@ profile_page = st.Page("pages/profile.py", title="Meu Perfil", icon="👤")
 admin_list_page = st.Page("pages/admin_list.py", title="Lista de Usuários", icon="👥")
 admin_manage_page = st.Page("pages/admin_manage.py", title="Gerenciar Usuário", icon="⚙️")
 admin_delete_page = st.Page("pages/admin_delete.py", title="Excluir Conta", icon="🗑️")
+admin_activity_page = st.Page("pages/admin_activity.py", title="Atividade dos Usuários", icon="📊")
 # ==========================================
 # 4. CONTROLE DE NAVEGAÇÃO
 # ==========================================
@@ -49,7 +50,7 @@ else:
     }
     
     if st.session_state.get('user_role') == 'admin':
-        pages["Administração"] = [admin_list_page, admin_manage_page, admin_delete_page]
+        pages["Administração"] = [admin_activity_page, admin_list_page, admin_manage_page, admin_delete_page]
         
     pg = st.navigation(pages)
 
