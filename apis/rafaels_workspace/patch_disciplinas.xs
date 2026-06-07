@@ -1,11 +1,33 @@
+// =============================================================
+// apis/.../patch_disciplinas.xs — PATCH /disciplinas
+// =============================================================
+// Endpoint que atualiza uma disciplina existente do aluno autenticado.
+//
+// Método HTTP: PATCH (atualização parcial)
+// Autenticação: obrigatória (token JWT)
+//
+// Fluxo com verificação de propriedade:
+//   1. Busca a disciplina que pertença ao usuário logado
+//   2. Se não existir, retorna erro (acesso negado / não encontrada)
+//   3. Atualiza apenas os campos enviados (usa ?? para manter o valor atual)
+//
+// Operador ?? (Null Coalescing):
+//   $input.nome ?? $existing_disc.nome
+//   → se $input.nome for null (não enviado), usa o valor atual do banco
+//   → isso permite atualizar apenas UM campo sem enviar os outros
+// =============================================================
+
+// Atualiza uma disciplina existente
 query "disciplinas" verb=PATCH {
   description = "Atualiza uma disciplina existente"
   auth = "user"
 
   input {
+    // ID da disciplina a ser atualizada — obrigatório para identificar o registro
     int id {
       description = "ID da disciplina a ser atualizada"
     }
+    // Campos opcionais (marcados com ?): só atualiza os que forem enviados
     text nome? filters=trim {
       description = "Novo nome da disciplina"
     }
@@ -18,26 +40,34 @@ query "disciplinas" verb=PATCH {
   }
 
   stack {
-    // Busca a disciplina garantindo que pertence ao usuário
+    // Passo 1: Busca a disciplina garantindo que pertence ao usuário
+    // A condição combina dois filtros: id correto E user_id correto
+    // Isso previne que um usuário edite disciplinas de outro
     db.get "disciplinas" {
       where = ($db.disciplinas.id == $input.id) && ($db.disciplinas.user_id == $auth.id)
     } as $existing_disc
     
+    // Passo 2: Verifica se o registro foi encontrado
+    // Se $existing_disc for null (não encontrado ou não pertence ao usuário), lança erro
     precondition {
       if ($existing_disc == null) {
         throw "Disciplina não encontrada ou acesso negado"
       }
     }
 
+    // Passo 3: Atualiza o registro com os novos valores
+    // Operador ?? (null coalescing): usa o valor enviado; se for null, mantém o atual
     db.edit "disciplinas" {
       id = $input.id
       data = {
-        nome      : $input.nome ?? $existing_disc.nome
-        prof_id   : $input.prof_id ?? $existing_disc.prof_id
+        // Se $input.nome for enviado → usa; senão → mantém $existing_disc.nome
+        nome      : $input.nome      ?? $existing_disc.nome
+        prof_id   : $input.prof_id   ?? $existing_disc.prof_id
         course_id : $input.course_id ?? $existing_disc.course_id
       }
     } as $updated_disc
   }
 
+  // Retorna a disciplina com os dados atualizados
   response = $updated_disc
 }
