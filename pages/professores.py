@@ -1,6 +1,21 @@
 import streamlit as st
 import pandas as pd
 from utils.api import api_post, api_get, api_patch, api_delete
+@st.dialog("Confirmar Exclusão")
+def confirm_delete_prof(prof_id):
+    st.error("Tem certeza que deseja excluir este professor? Esta ação não pode ser desfeita.")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button('Voltar / Cancelar', use_container_width=True):
+            st.rerun()
+    with col2:
+        if st.button('Confirmar Exclusão', type='primary', use_container_width=True):
+            res_del = api_delete('professores', prof_id)
+            if res_del.status_code == 200:
+                st.success("Professor removido com sucesso!")
+                st.rerun()
+            else:
+                st.error(f"Erro ao remover: {res_del.text}")
 
 def modulo_professores():
     st.header('Meus Professores')
@@ -43,6 +58,10 @@ def modulo_professores():
                             st.rerun()
                         else:
                             st.error(f"Erro ao atualizar: {res_patch.text}")
+                
+                st.markdown("---")
+                if st.button('🗑️ Remover Professor', type='primary', use_container_width=True):
+                    confirm_delete_prof(p_atual['id'])
 
     # [R]EAD
     if professores:
@@ -62,14 +81,7 @@ def modulo_professores():
         
         st.dataframe(df_display, use_container_width=True, hide_index=True)
         
-        # [D]ELETE
-        id_del = st.number_input('ID para remover', min_value=1, step=1)
-        if st.button('Remover Professor', type='primary'):
-            res_del = api_delete('professores', id_del)
-            if res_del.status_code == 200:
-                st.rerun()
-            else:
-                st.error(f"Erro ao remover: {res_del.text}")
+
     else:
         st.info('Nenhum professor cadastrado ainda.')
 

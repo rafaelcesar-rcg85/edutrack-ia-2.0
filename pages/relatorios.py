@@ -39,10 +39,15 @@ def modulo_relatorios():
     professores = api_get('professores')
     disciplinas = api_get('disciplinas')
     tarefas = api_get('tarefas')
+    cursos = api_get('curso')
+    
+    if cursos:
+        for c in cursos:
+            c['curso'] = c.get('curso', c.get('name', 'Sem Nome'))
 
-    # Se não houver disciplinas ou professores, orientar o usuário
-    if not professores and not disciplinas and not tarefas:
-        st.info("Ainda não há dados registrados para gerar o relatório. Cadastre professores, disciplinas e tarefas para começar!")
+    # Se não houver disciplinas, professores ou cursos, orientar o usuário
+    if not professores and not disciplinas and not tarefas and not cursos:
+        st.info("Ainda não há dados registrados para gerar o relatório. Cadastre cursos, disciplinas e tarefas para começar!")
         return
 
     # Processar nome e dados do aluno para o cabeçalho do relatório
@@ -197,92 +202,146 @@ def modulo_relatorios():
     st.markdown("<br><hr style='border-top: 1px solid #eee;'><br>", unsafe_allow_html=True)
 
     # 5. QUADROS DETALHADOS E FILTROS
-    st.subheader('📝 Quadro Geral de Informações')
+    st.subheader('📝 Quadro Geral e Filtros do Relatório')
     
-    tab_tarefas, tab_disciplinas, tab_professores = st.tabs(['Tarefas e Notas', 'Disciplinas', 'Professores'])
+    # ---------------------------------------------------------
+    # PREPARAÇÃO DOS DADOS E FILTROS GLOBAIS PARA TAREFAS
+    # ---------------------------------------------------------
+    df_filtrado_raw = pd.DataFrame()
+    if tarefas:
+        df_t = pd.DataFrame(tarefas)
+        df_d = pd.DataFrame(disciplinas) if disciplinas else pd.DataFrame()
+        df_c = pd.DataFrame(cursos) if cursos else pd.DataFrame()
+        
+        # Formatação de datas e junção de disciplina e curso
+        if not df_d.empty:
+            df_t_view = df_t.merge(df_d[['id', 'nome']], left_on='disc_id', right_on='id', how='left', suffixes=('', '_disc'))
+            df_t_view['nome_disc'] = df_t_view['nome_disc'].fillna('N/A')
+        else:
+            df_t_view = df_t.copy()
+            df_t_view['nome_disc'] = 'N/A'
+
+        if not df_c.empty and 'curso_id' in df_t_view.columns:
+            df_t_view = df_t_view.merge(df_c[['id', 'curso']], left_on='curso_id', right_on='id', how='left', suffixes=('', '_curso_t'))
+            df_t_view['nome_curso'] = df_t_view['curso'].fillna('S/ Curso')
+        else:
+            df_t_view['nome_curso'] = 'S/ Curso'
+
+        st.write("🔍 **Filtros Globais para Tarefas (Tabela e Exportação)**")
+        f_col1, f_col2, f_col3, f_col4, f_col5 = st.columns(5)
+        
+        with f_col1:
+            curso_options = ['Todos'] + list(df_t_view['nome_curso'].unique())
+            filtro_curso = st.selectbox('Curso', options=curso_options, key='filtro_curso_rep')
+            
+        with f_col2:
+            disc_options = ['Todas'] + list(df_t_view['nome_disc'].unique())
+            filtro_disc = st.selectbox('Disciplina', options=disc_options, key='filtro_disc_rep')
+            
+        with f_col3:
+            status_options = ['Todos', 'Concluída', 'Para Entregar']
+            filtro_status = st.selectbox('Status', options=status_options, key='filtro_status_rep')
+            
+        with f_col4:
+            filtro_data_inicio = st.date_input("Data Entrega (De)", value=None, key='filtro_data_ini_rep', format="DD/MM/YYYY")
+            
+        with f_col5:
+            filtro_data_fim = st.date_input("Data Entrega (Até)", value=None, key='filtro_data_fim_rep', format="DD/MM/YYYY")
+        
+        # Aplicar filtros
+        df_filtrado_raw = df_t_view.copy()
+        if filtro_curso != 'Todos':
+            df_filtrado_raw = df_filtrado_raw[df_filtrado_raw['nome_curso'] == filtro_curso]
+        if filtro_disc != 'Todas':
+            df_filtrado_raw = df_filtrado_raw[df_filtrado_raw['nome_disc'] == filtro_disc]
+        if filtro_status != 'Todos':
+            df_filtrado_raw = df_filtrado_raw[df_filtrado_raw['status'] == filtro_status]
+            
+        if filtro_data_inicio and filtro_data_fim:
+            def parse_date(d):
+                if pd.isna(d): return None
+                try:
+                    if isinstance(d, int):
+                        return datetime.datetime.fromtimestamp(d/1000.0).date()
+                    return datetime.datetime.fromisoformat(str(d).split('T')[0]).date()
+                except:
+                    return None
+            df_dates = df_filtrado_raw['data_entrega'].apply(parse_date)
+            # handle NaT
+            mask = df_dates.between(filtro_data_inicio, filtro_data_fim)
+            df_filtrado_raw = df_filtrado_raw[mask.fillna(False)]
+
+    # ---------------------------------------------------------
+    # TABS DE EXIBIÇÃO
+    # ---------------------------------------------------------
+    tab_tarefas, tab_disciplinas, tab_professores, tab_cursos = st.tabs(['Tarefas e Notas', 'Disciplinas', 'Professores', 'Cursos'])
     
     with tab_tarefas:
-        if tarefas:
-            df_t = pd.DataFrame(tarefas)
-            df_d = pd.DataFrame(disciplinas) if disciplinas else pd.DataFrame()
-            
-            # Formatação de datas e junção de disciplina
-            if not df_d.empty:
-                df_t_view = df_t.merge(df_d[['id', 'nome']], left_on='disc_id', right_on='id', suffixes=('', '_disc'))
-            else:
-                df_t_view = df_t.copy()
-                df_t_view['nome_disc'] = 'N/A'
-
-            # Filtros na Interface do Streamlit
-            st.write("🔍 **Filtrar Dados do Quadro**")
-            f_col1, f_col2 = st.columns(2)
-            
-            with f_col1:
-                disc_options = ['Todas'] + list(df_t_view['nome_disc'].unique())
-                filtro_disc = st.selectbox('Filtrar por Disciplina', options=disc_options, key='filtro_disc_rep')
-                
-            with f_col2:
-                status_options = ['Todos', 'Concluída', 'Para Entregar']
-                filtro_status = st.selectbox('Filtrar por Status', options=status_options, key='filtro_status_rep')
-            
-            # Aplicar filtros
-            df_filtrado = df_t_view.copy()
-            if filtro_disc != 'Todas':
-                df_filtrado = df_filtrado[df_filtrado['nome_disc'] == filtro_disc]
-            if filtro_status != 'Todos':
-                df_filtrado = df_filtrado[df_filtrado['status'] == filtro_status]
-                
-            # Formatar a data
-            def format_date(d):
+        if not df_filtrado_raw.empty:
+            df_filtrado_ui = df_filtrado_raw.copy()
+            # Formatar a data para UI
+            def format_date_ui(d):
                 if not d or pd.isna(d): return "-"
                 try:
+                    if isinstance(d, int):
+                        return datetime.datetime.fromtimestamp(d/1000.0).strftime('%d/%m/%Y')
                     return datetime.datetime.fromisoformat(str(d).split('T')[0]).strftime('%d/%m/%Y')
                 except:
                     return str(d)
             
-            if 'data_entrega' in df_filtrado.columns:
-                df_filtrado['data_entrega_format'] = df_filtrado['data_entrega'].apply(format_date)
+            if 'data_entrega' in df_filtrado_ui.columns:
+                df_filtrado_ui['data_entrega_format'] = df_filtrado_ui['data_entrega'].apply(format_date_ui)
             else:
-                df_filtrado['data_entrega_format'] = "-"
+                df_filtrado_ui['data_entrega_format'] = "-"
                 
-            if 'nota' not in df_filtrado.columns:
-                df_filtrado['nota'] = "-"
+            if 'nota' not in df_filtrado_ui.columns:
+                df_filtrado_ui['nota'] = "-"
             else:
-                df_filtrado['nota'] = df_filtrado['nota'].apply(lambda x: f"{float(x):.1f}" if x is not None and not pd.isna(x) else "-")
+                df_filtrado_ui['nota'] = df_filtrado_ui['nota'].apply(lambda x: f"{float(x):.1f}" if x is not None and not pd.isna(x) else "-")
 
-            df_filtrado = df_filtrado.rename(columns={
+            df_filtrado_ui = df_filtrado_ui.rename(columns={
                 'nome': 'Tarefa/Atividade',
                 'nome_disc': 'Disciplina',
+                'nome_curso': 'Curso',
                 'status': 'Status',
                 'data_entrega_format': 'Prazo/Entrega',
                 'nota': 'Nota'
             })
             
-            cols_exibicao = ['Tarefa/Atividade', 'Disciplina', 'Status', 'Prazo/Entrega', 'Nota']
-            cols_exibicao = [c for c in cols_exibicao if c in df_filtrado.columns]
+            cols_exibicao = ['Tarefa/Atividade', 'Curso', 'Disciplina', 'Status', 'Prazo/Entrega', 'Nota']
+            cols_exibicao = [c for c in cols_exibicao if c in df_filtrado_ui.columns]
             
-            st.dataframe(df_filtrado[cols_exibicao], use_container_width=True, hide_index=True)
+            st.dataframe(df_filtrado_ui[cols_exibicao], use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhuma tarefa cadastrada.")
+            st.info("Nenhuma tarefa encontrada com os filtros aplicados.")
 
     with tab_disciplinas:
         if disciplinas:
             df_d = pd.DataFrame(disciplinas)
             df_p = pd.DataFrame(professores) if professores else pd.DataFrame()
+            df_c = pd.DataFrame(cursos) if cursos else pd.DataFrame()
             
             if not df_p.empty:
-                df_d_view = df_d.merge(df_p[['id', 'nome']], left_on='prof_id', right_on='id', suffixes=('', '_prof'))
+                df_d_view = df_d.merge(df_p[['id', 'nome']], left_on='prof_id', right_on='id', how='left', suffixes=('', '_prof'))
+                df_d_view['nome_prof'] = df_d_view['nome_prof'].fillna('N/A')
             else:
                 df_d_view = df_d.copy()
                 df_d_view['nome_prof'] = 'N/A'
                 
+            if not df_c.empty and 'curso_id' in df_d_view.columns:
+                df_d_view = df_d_view.merge(df_c[['id', 'curso']], left_on='curso_id', right_on='id', how='left', suffixes=('', '_curso_d'))
+                df_d_view['nome_curso'] = df_d_view['curso'].fillna('S/ Curso')
+            else:
+                df_d_view['nome_curso'] = 'S/ Curso'
+                
             df_d_view = df_d_view.rename(columns={
                 'id': 'ID Disciplina',
                 'nome': 'Nome da Matéria',
+                'nome_curso': 'Curso',
                 'nome_prof': 'Professor Responsável'
             })
             
-            st.dataframe(df_d_view[['ID Disciplina', 'Nome da Matéria', 'Professor Responsável']], use_container_width=True, hide_index=True)
+            st.dataframe(df_d_view[['ID Disciplina', 'Nome da Matéria', 'Curso', 'Professor Responsável']], use_container_width=True, hide_index=True)
         else:
             st.info("Nenhuma disciplina cadastrada.")
 
@@ -302,11 +361,65 @@ def modulo_relatorios():
         else:
             st.info("Nenhum professor cadastrado.")
 
+    with tab_cursos:
+        if cursos:
+            df_c = pd.DataFrame(cursos)
+            df_c_view = df_c.copy()
+            
+            def format_date_c(d):
+                if not d or pd.isna(d): return "-"
+                try:
+                    return datetime.datetime.fromisoformat(str(d).split('T')[0]).strftime('%d/%m/%Y')
+                except:
+                    return str(d)
+                    
+            if 'data_inicio' in df_c_view.columns:
+                df_c_view['Início'] = df_c_view['data_inicio'].apply(format_date_c)
+            else:
+                df_c_view['Início'] = "-"
+                
+            if 'data_fim' in df_c_view.columns:
+                df_c_view['Fim'] = df_c_view['data_fim'].apply(format_date_c)
+            else:
+                df_c_view['Fim'] = "-"
+                
+            df_c_view = df_c_view.rename(columns={
+                'id': 'ID Curso',
+                'curso': 'Nome do Curso',
+                'instituicao': 'Instituição',
+                'status': 'Status'
+            })
+            
+            cols_c = ['ID Curso', 'Nome do Curso', 'Instituição', 'Status', 'Início', 'Fim']
+            cols_c = [c for c in cols_c if c in df_c_view.columns]
+            st.dataframe(df_c_view[cols_c], use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum curso cadastrado.")
+
     st.markdown("<br><hr style='border-top: 1px solid #eee;'><br>", unsafe_allow_html=True)
 
     # 6. GERAÇÃO DE EXPORTAÇÃO PREMIUM EM HTML (PRONTO PARA IMPRESSÃO EM PDF)
     st.subheader('📥 Central de Exportação')
     st.write('Baixe o relatório consolidado para impressão ou análise externa.')
+
+    # Prepara Cursos por Status para o HTML
+    cursos_formado = [c['curso'] for c in cursos if c.get('status') == 'formado'] if cursos else []
+    cursos_cursando = [c['curso'] for c in cursos if c.get('status') == 'cursando'] if cursos else []
+    cursos_matriculado = [c['curso'] for c in cursos if c.get('status') == 'matriculado'] if cursos else []
+
+    html_cursos_status = ""
+    if cursos_formado or cursos_cursando or cursos_matriculado:
+        html_cursos_status = "<div class='student-courses'>"
+        if cursos_formado:
+            c_str = "<br>".join(cursos_formado)
+            html_cursos_status += f"<div><span>🎓 FORMADO EM</span><p>{c_str}</p></div>"
+        if cursos_cursando:
+            c_str = "<br>".join(cursos_cursando)
+            html_cursos_status += f"<div><span>📘 CURSANDO</span><p>{c_str}</p></div>"
+        if cursos_matriculado:
+            c_str = "<br>".join(cursos_matriculado)
+            html_cursos_status += f"<div><span>📅 MATRICULADO</span><p>{c_str}</p></div>"
+        html_cursos_status += "</div>"
 
     # Lógica de construção do HTML Premium
     # CSS com design incrível baseado em HSL/RGB do EduTrack AI
@@ -373,6 +486,28 @@ def modulo_relatorios():
             opacity: 0.8;
         }}
         .student-info div p {{
+            margin: 0;
+            font-weight: 500;
+            font-size: 14px;
+        }}
+        
+        .student-courses {{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }}
+        .student-courses span {{
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 5px;
+            display: block;
+        }}
+        .student-courses p {{
             margin: 0;
             font-weight: 500;
             font-size: 14px;
@@ -506,10 +641,11 @@ def modulo_relatorios():
                 color: #000000 !important;
                 border: 1px solid #ccc;
             }}
-            .student-info {{
+            .student-info, .student-courses {{
                 border-top: 1px solid #999;
             }}
-            .student-info div span, .student-info div p {{
+            .student-info div span, .student-info div p,
+            .student-courses div span, .student-courses div p {{
                 color: #000 !important;
             }}
             .metric-card {{
@@ -555,6 +691,7 @@ def modulo_relatorios():
                     <p>{datetime.datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
                 </div>
             </div>
+            {html_cursos_status}
         </div>
 
         <!-- Grade de Metricas -->
@@ -585,6 +722,7 @@ def modulo_relatorios():
             <thead>
                 <tr>
                     <th>Atividade</th>
+                    <th>Curso</th>
                     <th>Disciplina</th>
                     <th>Status</th>
                     <th>Prazo/Entrega</th>
@@ -593,18 +731,11 @@ def modulo_relatorios():
             </thead>
             <tbody>"""
             
-    # Adicionar as tarefas dinamicamente no HTML
-    if tarefas:
-        df_t = pd.DataFrame(tarefas)
-        df_d = pd.DataFrame(disciplinas) if disciplinas else pd.DataFrame()
-        if not df_d.empty:
-            df_merged_t = df_t.merge(df_d[['id', 'nome']], left_on='disc_id', right_on='id', suffixes=('', '_disc'))
-        else:
-            df_merged_t = df_t.copy()
-            df_merged_t['nome_disc'] = 'N/A'
-
-        for _, row in df_merged_t.iterrows():
+    # Adicionar as tarefas dinamicamente no HTML (Aplicando os Filtros)
+    if not df_filtrado_raw.empty:
+        for _, row in df_filtrado_raw.iterrows():
             nome_t = row.get('nome', '-')
+            curso_n = row.get('nome_curso', '-')
             disc_n = row.get('nome_disc', '-')
             status_t = row.get('status', 'Concluída')
             
@@ -637,13 +768,14 @@ def modulo_relatorios():
             html_content += f"""
                 <tr>
                     <td style="font-weight: 500;">{nome_t}</td>
+                    <td style="font-size: 12px; color: #718096;">{curso_n}</td>
                     <td>{disc_n}</td>
                     <td><span class="{badge_class}">{status_desc}</span></td>
                     <td>{prazo}</td>
                     <td>{nota_desc}</td>
                 </tr>"""
     else:
-        html_content += """<tr><td colspan="5" style="text-align: center; color: #a0aec0;">Nenhuma tarefa/nota cadastrada ainda.</td></tr>"""
+        html_content += """<tr><td colspan="6" style="text-align: center; color: #a0aec0;">Nenhuma tarefa/nota cadastrada ainda.</td></tr>"""
 
     html_content += """
             </tbody>
@@ -657,6 +789,7 @@ def modulo_relatorios():
                     <thead>
                         <tr>
                             <th>Disciplina</th>
+                            <th>Curso</th>
                             <th>Professor</th>
                         </tr>
                     </thead>
@@ -666,22 +799,33 @@ def modulo_relatorios():
     if disciplinas:
         df_d = pd.DataFrame(disciplinas)
         df_p = pd.DataFrame(professores) if professores else pd.DataFrame()
+        df_c = pd.DataFrame(cursos) if cursos else pd.DataFrame()
+        
         if not df_p.empty:
-            df_merged_d = df_d.merge(df_p[['id', 'nome']], left_on='prof_id', right_on='id', suffixes=('', '_prof'))
+            df_merged_d = df_d.merge(df_p[['id', 'nome']], left_on='prof_id', right_on='id', how='left', suffixes=('', '_prof'))
+            df_merged_d['nome_prof'] = df_merged_d['nome_prof'].fillna('N/A')
         else:
             df_merged_d = df_d.copy()
             df_merged_d['nome_prof'] = 'N/A'
+            
+        if not df_c.empty and 'curso_id' in df_merged_d.columns:
+            df_merged_d = df_merged_d.merge(df_c[['id', 'curso']], left_on='curso_id', right_on='id', how='left', suffixes=('', '_curso_d'))
+            df_merged_d['nome_curso'] = df_merged_d['curso'].fillna('S/ Curso')
+        else:
+            df_merged_d['nome_curso'] = 'S/ Curso'
 
         for _, row in df_merged_d.iterrows():
             d_nome = row.get('nome', '-')
+            c_nome = row.get('nome_curso', '-')
             p_nome = row.get('nome_prof', '-')
             html_content += f"""
                         <tr>
                             <td style="font-weight: 500;">{d_nome}</td>
+                            <td style="font-size: 12px; color: #718096;">{c_nome}</td>
                             <td>{p_nome}</td>
                         </tr>"""
     else:
-        html_content += """<tr><td colspan="2" style="text-align: center; color: #a0aec0;">Nenhuma disciplina cadastrada.</td></tr>"""
+        html_content += """<tr><td colspan="3" style="text-align: center; color: #a0aec0;">Nenhuma disciplina cadastrada.</td></tr>"""
 
     html_content += """
                     </tbody>
@@ -729,30 +873,25 @@ def modulo_relatorios():
 
     # Lógica de download em CSV
     csv_data = ""
-    if tarefas:
-        df_t = pd.DataFrame(tarefas)
-        df_d = pd.DataFrame(disciplinas) if disciplinas else pd.DataFrame()
-        if not df_d.empty:
-            df_merged_t = df_t.merge(df_d[['id', 'nome']], left_on='disc_id', right_on='id', suffixes=('', '_disc'))
-        else:
-            df_merged_t = df_t.copy()
-            df_merged_t['nome_disc'] = 'N/A'
-        
+    if not df_filtrado_raw.empty:
         # Formatar a data para CSV
         def format_date_simple(d):
             if not d or pd.isna(d): return ""
             try:
+                if isinstance(d, int):
+                    return datetime.datetime.fromtimestamp(d/1000.0).strftime('%Y-%m-%d')
                 return datetime.datetime.fromisoformat(str(d).split('T')[0]).strftime('%Y-%m-%d')
             except:
                 return str(d)
         
         df_export = pd.DataFrame()
-        df_export['ID'] = df_merged_t.get('id', '')
-        df_export['Tarefa_Atividade'] = df_merged_t.get('nome', '')
-        df_export['Disciplina'] = df_merged_t.get('nome_disc', '')
-        df_export['Status'] = df_merged_t.get('status', '')
-        df_export['Prazo_Entrega'] = df_merged_t['data_entrega'].apply(format_date_simple) if 'data_entrega' in df_merged_t.columns else ""
-        df_export['Nota'] = df_merged_t.get('nota', '')
+        df_export['ID'] = df_filtrado_raw.get('id', '')
+        df_export['Tarefa_Atividade'] = df_filtrado_raw.get('nome', '')
+        df_export['Curso'] = df_filtrado_raw.get('nome_curso', '')
+        df_export['Disciplina'] = df_filtrado_raw.get('nome_disc', '')
+        df_export['Status'] = df_filtrado_raw.get('status', '')
+        df_export['Prazo_Entrega'] = df_filtrado_raw['data_entrega'].apply(format_date_simple) if 'data_entrega' in df_filtrado_raw.columns else ""
+        df_export['Nota'] = df_filtrado_raw.get('nota', '')
         
         csv_data = df_export.to_csv(index=False, sep=';', encoding='utf-8-sig')
 
