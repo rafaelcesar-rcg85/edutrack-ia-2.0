@@ -2,9 +2,11 @@ import streamlit as st
 import requests
 import datetime
 from utils.api import BASE_URL, USER_PROFILES_URL, api_user_change_password, api_user_change_email
+from utils.theme import apply_theme
 
 
 def perfil_usuario():
+    apply_theme()
     st.title('Meu Perfil')
 
     if not st.session_state.get('logged_in') or not st.session_state.get('auth_token'):

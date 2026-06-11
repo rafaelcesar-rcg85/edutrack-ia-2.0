@@ -22,6 +22,7 @@ import streamlit as st    # Interface web
 import pandas as pd       # Manipulação de dados em tabela
 from datetime import datetime  # Tratamento de datas
 from utils.api import api_get, api_post, api_patch, api_delete  # Funções CRUD da API
+from utils.theme import apply_theme  # Sistema de temas visuais
 
 
 # ============================================================
@@ -60,6 +61,7 @@ def modulo_tarefas():
     Carrega disciplinas e cursos para montar os seletores,
     depois executa o fluxo CRUD.
     """
+    apply_theme()
     st.header('Minhas Tarefas e Notas')
     
     # Carrega os dados necessários para montar os seletores (dropdowns)

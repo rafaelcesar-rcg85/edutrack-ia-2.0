@@ -5,6 +5,7 @@ import plotly.express as px
 from datetime import datetime, date
 import calendar
 from utils.api import api_get
+from utils.theme import apply_theme
 
 def get_custom_calendar(year, month, task_dict):
     cal = calendar.monthcalendar(year, month)
@@ -14,31 +15,36 @@ def get_custom_calendar(year, month, task_dict):
     .cal-container {{
         background: white;
         border-radius: 10px;
-        padding: 15px;
+        padding: 10px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         font-family: 'Inter', sans-serif;
+        box-sizing: border-box;
+        width: 100%;
+        overflow: hidden;
     }}
     .cal-table {{
         width: 100%;
         border-collapse: collapse;
+        table-layout: fixed;
     }}
     .cal-table th {{
         color: #888;
         font-weight: normal;
-        font-size: 0.85em;
-        padding-bottom: 8px;
+        font-size: 0.8em;
+        padding-bottom: 6px;
+        text-align: center;
     }}
     .cal-table td {{
         text-align: center;
-        padding: 6px 0;
-        font-size: 0.9em;
+        padding: 4px 0;
+        font-size: 0.85em;
         color: #555;
     }}
     .cal-day {{
         display: inline-block;
-        width: 28px;
-        height: 28px;
-        line-height: 28px;
+        width: 24px;
+        height: 24px;
+        line-height: 24px;
         border-radius: 50%;
         transition: transform 0.2s;
     }}
@@ -54,21 +60,21 @@ def get_custom_calendar(year, month, task_dict):
         border: 2px solid #e67e22;
         color: #e67e22;
         font-weight: bold;
-        line-height: 24px;
+        line-height: 20px;
         cursor: help;
     }}
     .cal-day.task-concluida {{
         border: 2px solid #27ae60;
         color: #27ae60;
         font-weight: bold;
-        line-height: 24px;
+        line-height: 20px;
         cursor: help;
     }}
     .cal-day.task-mixed {{
         border: 2px solid #3498db;
         color: #3498db;
         font-weight: bold;
-        line-height: 24px;
+        line-height: 20px;
         cursor: help;
     }}
     .cal-day.active.task-pendente, .cal-day.active.task-concluida, .cal-day.active.task-mixed {{
@@ -77,7 +83,7 @@ def get_custom_calendar(year, month, task_dict):
     </style>
     <div class="cal-container">
         <table class="cal-table">
-            <tr><th>Dom</th><th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th></tr>
+            <tr><th>D</th><th>S</th><th>T</th><th>Q</th><th>Q</th><th>S</th><th>S</th></tr>
     """
     
     today = date.today()
@@ -119,6 +125,8 @@ def get_custom_calendar(year, month, task_dict):
     return html
 
 def modulo_dashboard():
+    # Aplica o tema visual escolhido pelo usuário
+    apply_theme()
     # Remove margins superior do título pra dar mais espaço
     st.markdown("<style>.block-container{padding-top: 2rem;}</style>", unsafe_allow_html=True)
     
@@ -414,9 +422,9 @@ def modulo_dashboard():
         if 'cal_year' not in st.session_state:
             st.session_state.cal_year = hoje_cal.year
             
-        col_prev, col_title, col_next = st.columns([1, 4, 1])
+        col_prev, col_title, col_next = st.columns([1, 5, 1])
         with col_prev:
-            if st.button("⬅️", use_container_width=True):
+            if st.button("◀", key="btn_prev_month", use_container_width=True):
                 st.session_state.cal_month -= 1
                 if st.session_state.cal_month < 1:
                     st.session_state.cal_month = 12
@@ -426,7 +434,7 @@ def modulo_dashboard():
             meses_pt = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
             st.markdown(f"<div style='text-align: center; font-weight: bold; font-size: 1.1em; padding-top: 5px;'>{meses_pt[st.session_state.cal_month]} {st.session_state.cal_year}</div>", unsafe_allow_html=True)
         with col_next:
-            if st.button("➡️", use_container_width=True):
+            if st.button("▶", key="btn_next_month", use_container_width=True):
                 st.session_state.cal_month += 1
                 if st.session_state.cal_month > 12:
                     st.session_state.cal_month = 1

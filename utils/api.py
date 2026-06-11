@@ -327,3 +327,74 @@ def api_delete_user(user_id):
         class MockResponse:
             status_code = 503
         return MockResponse()
+
+
+# ============================================================
+# PERSISTENCIA DE TEMA NO XANO
+# ============================================================
+
+def api_save_theme(theme_dict):
+    """
+    Salva as preferencias de tema do usuario via endpoint customizado
+    PATCH /update_theme — envia o tema serializado como string JSON para
+    máxima compatibilidade com colunas do tipo texto ou objeto no Xano.
+    """
+    if not st.session_state.get('auth_token'):
+        return False, 'Sem auth_token na sessao'
+    try:
+        import json
+        # Serializa para string JSON
+        theme_str = json.dumps(theme_dict)
+        res = requests.patch(
+            f'{BASE_URL}/update_theme',
+            json={'theme_preferences': theme_str},
+            headers=get_headers()
+        )
+        if res.status_code in (200, 201):
+            try:
+                return True, res.json()
+            except Exception:
+                return True, 'OK'
+        else:
+            try:
+                detail = res.json().get('message', res.text[:200])
+            except Exception:
+                detail = res.text[:200]
+            return False, f'HTTP {res.status_code}: {detail}'
+    except requests.exceptions.RequestException as e:
+        return False, str(e)
+
+
+def api_load_theme():
+    """
+    Carrega as preferencias de tema salvas do Xano para o usuario logado.
+    Busca o campo theme_preferences via GET /auth/me.
+    Suporta leitura tanto se o campo for armazenado como Objeto quanto como Texto (string JSON).
+    """
+    if not st.session_state.get('auth_token'):
+        return None
+    try:
+        res = requests.get(f'{BASE_URL}/auth/me', headers=get_headers())
+        if res.status_code == 200:
+            user_data = res.json()
+            saved = user_data.get('theme_preferences')
+            
+            if not saved:
+                return None
+                
+            # Se estiver salvo como string JSON (coluna do tipo texto no Xano)
+            if isinstance(saved, str):
+                import json
+                try:
+                    saved = json.loads(saved)
+                except Exception:
+                    return None
+                    
+            # Se for um dicionário válido
+            if isinstance(saved, dict) and 'primary' in saved:
+                return saved
+    except requests.exceptions.RequestException:
+        pass
+    return None
+
+    return None
