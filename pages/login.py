@@ -97,6 +97,20 @@ def _do_login(email: str, senha: str) -> bool:
     # Finaliza o login: salva o token e marca o usuário como logado
     st.session_state.auth_token = token
     st.session_state.logged_in  = True
+
+    # Restaura o tema salvo no Xano (silencioso — não bloqueia se falhar)
+    try:
+        from utils.api import api_load_theme
+        from utils.theme import save_theme_to_session, DEFAULT_THEMES, DEFAULT_THEME_KEY
+        saved_theme = api_load_theme()
+        if saved_theme:
+            # Salva na sessão SEM chamar api_save_theme (já está salvo no Xano)
+            st.session_state.theme = saved_theme
+            st.session_state.theme_key = saved_theme.get('name', 'custom').lower().replace(' ', '_')
+        # Se não tiver tema salvo, mantém o padrão (já inicializado pelo get_theme())
+    except Exception:
+        pass
+
     return True
 
 

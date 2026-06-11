@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from utils.api import api_get, api_post, api_patch, api_delete
+from utils.theme import apply_theme
 @st.dialog("Confirmar Exclusão")
 def confirm_delete_disc(disc_id):
     st.error("Tem certeza que deseja excluir esta disciplina? Esta ação não pode ser desfeita.")
@@ -18,6 +19,7 @@ def confirm_delete_disc(disc_id):
                 st.error(f"Erro ao remover: {res_del.text}")
 
 def modulo_disciplinas():
+    apply_theme()
     st.header('Minhas Disciplina')
     profs = api_get('professores')
     cursos = api_get('curso')

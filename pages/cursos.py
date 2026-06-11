@@ -18,6 +18,7 @@ import streamlit as st   # Interface web
 import pandas as pd      # Manipulação de tabelas de dados (DataFrames)
 import datetime          # Tratamento de datas
 from utils.api import api_post, api_get, api_patch, api_delete  # Funções CRUD da API
+from utils.theme import apply_theme  # Sistema de temas visuais
 
 
 # ============================================================
@@ -56,6 +57,7 @@ def modulo_cursos():
     Função principal que monta toda a interface da página de Cursos.
     Segue a estrutura CRUD: Create → Update/Delete → Read.
     """
+    apply_theme()
     st.header('Meus Cursos')
     
     # ── [C]REATE — Adicionar Novo Curso ──────────────────────

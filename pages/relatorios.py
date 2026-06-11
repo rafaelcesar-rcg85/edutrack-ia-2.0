@@ -4,8 +4,10 @@ import plotly.express as px
 import datetime
 import requests
 from utils.api import api_get, BASE_URL, USER_PROFILES_URL
+from utils.theme import apply_theme
 
 def modulo_relatorios():
+    apply_theme()
     st.markdown("<style>.block-container{padding-top: 2rem;}</style>", unsafe_allow_html=True)
     
     st.header('📋 Relatórios Acadêmicos')
