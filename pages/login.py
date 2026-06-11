@@ -19,6 +19,7 @@
 import streamlit as st  # Framework de interface web
 import requests          # Biblioteca para chamadas HTTP
 from utils.api import BASE_URL, USER_PROFILES_URL  # URLs da API Xano
+from utils.theme import apply_theme  # Sistema de temas visuais
 
 
 # ============================================================
@@ -117,7 +118,7 @@ def _do_login(email: str, senha: str) -> bool:
 # ============================================================
 # FUNÇÃO DE CRIAÇÃO DE PERFIL (APÓS CADASTRO)
 # ============================================================
-def _criar_perfil(token: str, first_name: str) -> None:
+def _criar_perfil(token: str, full_name: str) -> None:
     """
     Cria o perfil inicial do usuário logo após o cadastro.
     
@@ -148,8 +149,16 @@ def _criar_perfil(token: str, first_name: str) -> None:
         except:
             pass
 
-        # Monta o payload com o primeiro nome (sobrenome vazio por padrão)
-        payload = {'first_name': first_name, 'last_name': ''}
+        # Separa o nome completo em nome e sobrenome
+        parts = full_name.strip().split(maxsplit=1)
+        if len(parts) > 1:
+            first_name = parts[0]
+            last_name = parts[1]
+        else:
+            first_name = parts[0] if parts else ''
+            last_name = '-'  # O Xano exige sobrenome não vazio
+
+        payload = {'first_name': first_name, 'last_name': last_name}
         if user_id:
             payload['user_id'] = user_id
 
@@ -178,69 +187,160 @@ def tela_acesso():
       - Aba 1: Formulário de login
       - Aba 2: Formulário de criação de conta
     """
-    st.title('Portal Acadêmico Personalizado')
+    apply_theme()
+    # Adicionar estilo CSS local para alinhar e suavizar as bordas das colunas
+    st.markdown("<style>.block-container{max-width: 1200px; padding-top: 2rem;}</style>", unsafe_allow_html=True)
     
-    # st.tabs cria abas na interface — o usuário clica para alternar
-    tab_login, tab_cadastro = st.tabs(['Entrar', 'Criar Minha Conta'])
+    st.title('🎓 EduTrack AI')
+    st.caption('Acompanhe sua jornada acadêmica de forma inteligente e personalizada.')
+    
+    col_form, col_preview = st.columns([5, 6], gap="large")
+    
+    with col_form:
+        # st.tabs cria abas na interface — o usuário clica para alternar
+        tab_login, tab_cadastro = st.tabs(['Entrar', 'Criar Minha Conta'])
 
-    # ── Aba de Login ──────────────────────────────────────────
-    with tab_login:
-        # st.form agrupa campos e botão; o submit só dispara quando o botão é clicado
-        with st.form('login_form'):
-            email = st.text_input('E-mail')
-            senha = st.text_input('Senha', type='password')  # type='password' oculta o texto
-            if st.form_submit_button('Acessar Meu Painel'):
-                if _do_login(email, senha):
-                    st.rerun()  # Recarrega o app → redireciona para o dashboard
+        # ── Aba de Login ──────────────────────────────────────────
+        with tab_login:
+            # st.form agrupa campos e botão; o submit só dispara quando o botão é clicado
+            with st.form('login_form'):
+                email = st.text_input(
+                    'E-mail',
+                    placeholder='seu.email@exemplo.com',
+                    help='Digite seu e-mail acadêmico ou pessoal cadastrado.'
+                )
+                senha = st.text_input(
+                    'Senha',
+                    type='password',
+                    placeholder='Digite sua senha',
+                    help='Digite a senha vinculada a esta conta.'
+                )
+                if st.form_submit_button('Acessar Meu Painel', use_container_width=True):
+                    if _do_login(email, senha):
+                        st.rerun()  # Recarrega o app → redireciona para o dashboard
 
-    # ── Aba de Cadastro ───────────────────────────────────────
-    with tab_cadastro:
-        with st.form('cadastro_form'):
-            nome       = st.text_input('Nome')
-            email_c    = st.text_input('E-mail')
-            pass_c     = st.text_input('Senha',           type='password')
-            pass_confirm = st.text_input('Confirmar Senha', type='password')
+        # ── Aba de Cadastro ───────────────────────────────────────
+        with tab_cadastro:
+            with st.form('cadastro_form'):
+                nome       = st.text_input(
+                    'Nome Completo',
+                    placeholder='Ex: João Silva',
+                    help='Insira seu nome e sobrenome. O sistema irá dividi-los para preencher seu perfil.'
+                )
+                email_c    = st.text_input(
+                    'E-mail',
+                    placeholder='exemplo@email.com',
+                    help='Utilize o e-mail principal com o qual deseja acessar o sistema.'
+                )
+                pass_c     = st.text_input(
+                    'Senha',
+                    type='password',
+                    placeholder='Mínimo 8 caracteres (com letras e números)',
+                    help='Crie uma senha de acesso contendo no mínimo 8 caracteres e pelo menos uma letra e um número.'
+                )
+                pass_confirm = st.text_input(
+                    'Confirmar Senha',
+                    type='password',
+                    placeholder='Repita a senha acima',
+                    help='Digite exatamente a mesma senha para confirmação.'
+                )
 
-            if st.form_submit_button('Cadastrar'):
-                # Validações antes de enviar para a API
-                if not pass_c:
-                    st.error("A senha não pode ser vazia.")
-                elif pass_c != pass_confirm:
-                    st.error("As senhas não coincidem. Tente novamente.")
-                else:
-                    # Envia o cadastro para o Xano via /auth/signup
-                    res = requests.post(
-                        f'{BASE_URL}/auth/signup',
-                        json={'name': nome, 'email': email_c, 'password': pass_c, 'role': 'user'}
-                    )
-
-                    if res.status_code == 200:
-                        # Login automático após cadastro — melhor UX e garante vinculação do perfil
-                        login_res = requests.post(
-                            f'{BASE_URL}/auth/login',
-                            json={'email': email_c, 'password': pass_c}
+                if st.form_submit_button('Cadastrar', use_container_width=True):
+                    # Validações antes de enviar para a API
+                    if not nome.strip():
+                        st.error("O nome não pode ser vazio.")
+                    elif not email_c.strip():
+                        st.error("O e-mail não pode ser vazio.")
+                    elif not pass_c:
+                        st.error("A senha não pode ser vazia.")
+                    elif len(pass_c) < 8 or not any(c.isalpha() for c in pass_c) or not any(c.isdigit() for c in pass_c):
+                        st.error("A senha deve ter pelo menos 8 caracteres e conter pelo menos uma letra e um número.")
+                    elif pass_c != pass_confirm:
+                        st.error("As senhas não coincidem. Tente novamente.")
+                    else:
+                        # Envia o cadastro para o Xano via /auth/signup
+                        res = requests.post(
+                            f'{BASE_URL}/auth/signup',
+                            json={'name': nome, 'email': email_c, 'password': pass_c, 'role': 'user'}
                         )
 
-                        if login_res.status_code == 200:
-                            token_novo = login_res.json().get('authToken')
+                        if res.status_code == 200:
+                            # Login automático após cadastro — melhor UX e garante vinculação do perfil
+                            login_res = requests.post(
+                                f'{BASE_URL}/auth/login',
+                                json={'email': email_c, 'password': pass_c}
+                            )
 
-                            # Cria o perfil com o nome digitado no cadastro
-                            # O Xano vincula ao usuário via $auth.id (token JWT)
-                            _criar_perfil(token_novo, first_name=nome)
+                            if login_res.status_code == 200:
+                                token_novo = login_res.json().get('authToken')
 
-                            # Loga automaticamente para não precisar refazer o login
-                            if _do_login(email_c, pass_c):
-                                st.success(f'Bem-vindo, {nome}! Sua conta foi criada com sucesso.')
-                                st.rerun()  # Redireciona para o dashboard
+                                # Cria o perfil com o nome digitado no cadastro
+                                # O Xano vincula ao usuário via $auth.id (token JWT)
+                                _criar_perfil(token_novo, full_name=nome)
+
+                                # Loga automaticamente para não precisar refazer o login
+                                if _do_login(email_c, pass_c):
+                                    st.success(f'Bem-vindo, {nome}! Sua conta foi criada com sucesso.')
+                                    st.rerun()  # Redireciona para o dashboard
+                            else:
+                                st.success('Conta criada! Agora faça o login.')
                         else:
-                            st.success('Conta criada! Agora faça o login.')
-                    else:
-                        # Exibe a mensagem de erro retornada pelo Xano
-                        try:
-                            error_msg = res.json().get('message', 'Erro ao cadastrar usuário.')
-                        except Exception:
-                            error_msg = 'Erro ao cadastrar usuário.'
-                        st.error(f'Erro no cadastro: {error_msg}')
+                            # Exibe a mensagem de erro retornada pelo Xano
+                            try:
+                                error_msg = res.json().get('message', 'Erro ao cadastrar usuário.')
+                            except Exception:
+                                error_msg = 'Erro ao cadastrar usuário.'
+                            st.error(f'Erro no cadastro: {error_msg}')
+
+    with col_preview:
+        st.markdown(
+            """
+            <div style="background: var(--banner-grad); padding: 25px; border-radius: 12px; margin-bottom: 20px; border-left: 5px solid var(--primary); box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                <h3 style="color: var(--banner-title); margin: 0 0 5px 0; font-family: var(--font-family); font-weight: 700;">Bem-vindo ao EduTrack AI! 🚀</h3>
+                <p style="color: var(--text-muted); margin: 0; font-size: 0.9em; line-height: 1.4;">
+                    Seu assistente acadêmico inteligente. Organize notas, acompanhe prazos de entrega, visualize relatórios de desempenho e gerencie sua vida acadêmica.
+                </p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border-top: 4px solid var(--primary); text-align: center;">
+                    <p style="color: var(--text-muted); font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 5px 0;">MÉDIA GERAL</p>
+                    <h2 style="color: var(--secondary); margin: 0; font-size: 2em; font-weight: 700;">9.20</h2>
+                </div>
+                <div style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border-top: 4px solid #27ae60; text-align: center;">
+                    <p style="color: var(--text-muted); font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 5px 0;">TAXA DE CONCLUSÃO</p>
+                    <h2 style="color: #27ae60; margin: 0; font-size: 2em; font-weight: 700;">85.7%</h2>
+                </div>
+            </div>
+            
+            <div style="background: white; padding: 22px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #edf2f7; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 15px 0; color: var(--text-main); font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    📅 Visão Geral de Atividades
+                </h4>
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f7fafc; padding-bottom: 10px; margin-bottom: 10px;">
+                    <div style="text-align: left;">
+                        <span style="font-weight: 600; font-size: 0.9em; color: var(--text-main); display: block;">Trabalho de Inteligência Artificial</span>
+                        <span style="font-size: 0.75em; color: var(--text-muted);">Disciplina: Ciência da Computação</span>
+                    </div>
+                    <span style="background: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 20px; font-size: 0.75em; font-weight: bold; border: 1px solid #b2f5ea;">NOTA: 9.5</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f7fafc; padding-bottom: 10px; margin-bottom: 10px;">
+                    <div style="text-align: left;">
+                        <span style="font-weight: 600; font-size: 0.9em; color: var(--text-main); display: block;">Prova de Cálculo II</span>
+                        <span style="font-size: 0.75em; color: var(--text-muted);">Disciplina: Matemática Aplicada</span>
+                    </div>
+                    <span style="background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 20px; font-size: 0.75em; font-weight: bold; border: 1px solid #fde68a;">PARA ENTREGAR</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 2px;">
+                    <div style="text-align: left;">
+                        <span style="font-weight: 600; font-size: 0.9em; color: var(--text-main); display: block;">Projeto de Banco de Dados</span>
+                        <span style="font-size: 0.75em; color: var(--text-muted);">Disciplina: Engenharia de Software</span>
+                    </div>
+                    <span style="background: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 20px; font-size: 0.75em; font-weight: bold; border: 1px solid #b2f5ea;">NOTA: 8.9</span>
+                </div>
+            </div>""",
+            unsafe_allow_html=True
+        )
 
 
 # ─── Ponto de entrada desta página ──────────────────────────

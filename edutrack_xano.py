@@ -115,7 +115,7 @@ else:
                 <p style='font-size: 11px; color: #888; margin: 0 0 4px 0; letter-spacing: 0.05em; text-transform: uppercase;'>
                     📌 Projeto EduTrack-IA
                 </p>
-                <p style='font-size: 12px; color: #aaa; margin: 2px 0;'>Rafael Cesar</p>
+                <p style='font-size: 12px; color: #aaa; margin: 2px 0;'>Rafael César</p>
                 <p style='font-size: 12px; color: #aaa; margin: 2px 0;'>Gabriela Moura</p>
                 <p style='font-size: 12px; color: #aaa; margin: 2px 0;'>Eduardo Lanza</p>
             </div>
