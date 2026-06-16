@@ -1,5 +1,5 @@
 // =============================================================
-// apis/.../patch_courses.xs — PATCH /courses/{courses_id}
+// apis/.../patch_courses.xs — PATCH /curso/{curso_id}
 // =============================================================
 // Endpoint que atualiza um curso existente do aluno autenticado.
 //
@@ -15,17 +15,16 @@
 // O passo 3 é essencial para evitar que um usuário edite
 // cursos de outro usuário (Broken Object Level Authorization - BOLA)
 // =============================================================
-
-// A rota usa {courses_id} como parâmetro de caminho (path parameter)
-// Exemplo: PATCH /courses/42 → atualiza o curso com ID 42
-query "courses/{courses_id}" verb=PATCH {
+// A rota usa {curso_id} como parâmetro de caminho (path parameter)
+// Exemplo: PATCH /curso/42 → atualiza o curso com ID 42
+query "curso/{curso_id}" verb=PATCH {
   description = "Atualiza o nome de um curso pertencente ao aluno autenticado"
   auth = "user"
 
   // Bloco de inputs
   input {
     // ID do curso a ser atualizado — capturado automaticamente da URL
-    int courses_id {
+    int curso_id {
       description = "ID do curso a ser atualizado"
     }
 
@@ -40,9 +39,9 @@ query "courses/{courses_id}" verb=PATCH {
   stack {
     // Verifica se o curso pertence ao aluno autenticado
     // Passo 1: Busca o curso pelo ID fornecido
-    db.get "courses" {
+    db.get "curso" {
       field_name  = "id"
-      field_value = $input.courses_id
+      field_value = $input.curso_id
     } as $course  // Armazena o registro encontrado em $course
 
     // Passo 2: Verifica se o dono do curso é o usuário logado
@@ -55,9 +54,9 @@ query "courses/{courses_id}" verb=PATCH {
     }
 
     // Passo 3: Atualiza apenas os campos enviados pelo cliente
-    db.patch "courses" {
+    db.patch "curso" {
       field_name  = "id"
-      field_value = $input.courses_id
+      field_value = $input.curso_id
       data = {
         name: $input.name
       }

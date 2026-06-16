@@ -1,56 +1,39 @@
 // =============================================================
-// apis/.../delete_professores.xs — DELETE /professores
+// apis/.../delete_professores.xs — DELETE /professores/{id}
 // =============================================================
 // Endpoint que remove um professor existente do aluno autenticado.
-//
-// Método HTTP: DELETE (remoção)
-// Autenticação: obrigatória (token JWT)
-//
-// Fluxo com verificação de propriedade:
-//   1. Busca o professor filtrando por id E user_id simultaneamente
-//   2. Se não encontrado → erro (acesso negado ou não existe)
-//   3. Remove o registro permanentemente do banco
-//
-// ATENÇÃO: Disciplinas que referenciam este professor via prof_id
+// ATENÇÃO: Disciplinas com prof_id referenciando este professor
 // podem ficar com referência quebrada após a exclusão.
 // =============================================================
-
-// Deleta um professor existente
-query "professores" verb=DELETE {
-  description = "Deleta um professor existente"
+// Deleta um professor existente do aluno autenticado
+query "professores/{id}" verb=DELETE {
+  api_group = "Rafael's Workspace"
   auth = "user"
 
   input {
-    // ID do professor a ser removido
-    int id {
-      description = "ID do professor a ser deletado"
-    }
+    // ID do professor capturado da URL — ex: DELETE /professores/4
+    int id
   }
 
   stack {
-    // Busca o professor garantindo que pertence ao usuário
-    // Se o professor existir mas pertencer a outro usuário, o where
-    // não encontrará o registro e $existing_prof será null
-    db.get "professores" {
-      where = ($db.professores.id == $input.id) && ($db.professores.user_id == $auth.id)
+    // Passo 1: Busca o registro pelo ID
+    db.get professores {
+      field_name = "id"
+      field_value = $input.id
     } as $existing_prof
-    
-    // Se não foi encontrado, lança erro e interrompe a execução
-    precondition {
-      if ($existing_prof == null) {
-        throw "Professor não encontrado ou acesso negado"
-      }
+
+    // Passo 2: Verifica se pertence ao usuário logado
+    precondition ($existing_prof != null && $existing_prof.user_id == $auth.id) {
+      error_type = "accessdenied"
+      error = "Professor não encontrado ou acesso negado"
     }
 
-    // Remove o registro do banco usando filtro where para segurança
-    db.delete "professores" {
-      where = $db.professores.id == $input.id
+    // Passo 3: Remove o registro do banco de dados
+    db.del professores {
+      field_name = "id"
+      field_value = $input.id
     }
   }
 
-  // Retorna confirmação de sucesso ao cliente
-  response = {
-    success: true
-    message: "Professor deletado com sucesso"
-  }
+  response = {success: true, message: "Professor deletado com sucesso"}
 }

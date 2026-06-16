@@ -6,7 +6,7 @@
 //
 // Esta tabela armazena os professores cadastrados por cada aluno.
 // Relacionamentos:
-//   professores.course_id → courses.id  (curso ao qual pertence)
+//   professores.course_id → curso.id  (curso ao qual pertence)
 //   professores.user_id   → user.id     (aluno dono do registro)
 // =============================================================
 
@@ -26,9 +26,9 @@ table professores {
     email email?
   
     // Chave estrangeira: ID do curso ao qual o professor pertence
-    // O campo "table" define o relacionamento com a tabela "courses"
+    // O campo "table" define o relacionamento com a tabela "curso"
     int course_id? {
-      table = "courses"
+      table = "curso"
     }
   
     // Chave estrangeira: ID do usuário (aluno) dono deste registro

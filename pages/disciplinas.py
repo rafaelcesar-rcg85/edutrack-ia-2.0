@@ -30,23 +30,39 @@ def modulo_disciplinas():
 
     # [C]REATE
     with st.expander('➕ Nova Disciplina'):
-        nome_d = st.text_input('Nome da Matéria')
-        opcoes_p = {p['nome']: p['id'] for p in profs}
-        p_escolhido = st.selectbox('Professor Responsável', options=list(opcoes_p.keys()))
-        
-        opcoes_c = {c.get('curso', c.get('name', 'Sem Nome')): c['id'] for c in cursos}
-        c_escolhido = st.selectbox('Curso Pertencente', options=list(opcoes_c.keys()))
-        
-        if st.button('Salvar Disciplina'):
-            dados_disc = {
-                'nome': nome_d, 
-                'prof_id': opcoes_p[p_escolhido],
-                'curso_id': opcoes_c[c_escolhido]
-            }
-            if 'user_id' in st.session_state:
-                dados_disc['user_id'] = st.session_state.user_id
-            api_post('disciplinas', dados_disc)
-            st.rerun()
+        with st.form('form_nova_disciplina'):
+            nome_d = st.text_input('Nome da Matéria')
+            opcoes_p = {p['nome']: p['id'] for p in profs}
+            p_escolhido = st.selectbox('Professor Responsável', options=list(opcoes_p.keys()))
+
+            opcoes_c = {c.get('curso', c.get('name', 'Sem Nome')): c['id'] for c in cursos}
+            c_escolhido = st.selectbox('Curso Pertencente', options=list(opcoes_c.keys()))
+
+            col_ta, col_lf = st.columns(2)
+            with col_ta:
+                total_aulas_d = st.number_input('Total de Aulas', min_value=0, step=1, value=0)
+            with col_lf:
+                limite_faltas_d = st.number_input('Limite de Faltas', min_value=0, step=1, value=0)
+
+            submitted = st.form_submit_button('Salvar Disciplina', type='primary', use_container_width=True)
+
+        if submitted:
+            if not nome_d.strip():
+                st.warning('⚠️ Informe o nome da matéria.')
+            else:
+                dados_disc = {
+                    'nome': nome_d.strip(),
+                    'prof_id': opcoes_p[p_escolhido],
+                    'curso_id': opcoes_c[c_escolhido],
+                    'total_aulas': total_aulas_d if total_aulas_d > 0 else None,
+                    'limite_faltas': limite_faltas_d if limite_faltas_d > 0 else None
+                }
+                res = api_post('disciplinas', dados_disc)
+                if res.status_code in [200, 201]:
+                    st.success(f"✅ Disciplina '{nome_d.strip()}' criada com sucesso!")
+                    st.rerun()
+                else:
+                    st.error(f"Erro ao criar disciplina: {res.text}")
 
     # [U]PDATE
     discs = api_get('disciplinas')
@@ -77,11 +93,27 @@ def modulo_disciplinas():
                     index_curso = list(opcoes_c.keys()).index(def_curso_nome) if def_curso_nome in opcoes_c else 0
                     novo_curso = st.selectbox('Curso Pertencente', options=list(opcoes_c.keys()), index=index_curso)
                     
+                    col_ta2, col_lf2 = st.columns(2)
+                    with col_ta2:
+                        novo_total_aulas = st.number_input(
+                            'Total de Aulas',
+                            min_value=0, step=1,
+                            value=int(d_atual.get('total_aulas') or 0)
+                        )
+                    with col_lf2:
+                        novo_limite_faltas = st.number_input(
+                            'Limite de Faltas',
+                            min_value=0, step=1,
+                            value=int(d_atual.get('limite_faltas') or 0)
+                        )
+                    
                     if st.form_submit_button('Atualizar Disciplina'):
                         dados_update = {
                             'nome': novo_nome,
                             'prof_id': opcoes_p[novo_prof],
-                            'curso_id': opcoes_c[novo_curso]
+                            'curso_id': opcoes_c[novo_curso],
+                            'total_aulas': novo_total_aulas if novo_total_aulas > 0 else None,
+                            'limite_faltas': novo_limite_faltas if novo_limite_faltas > 0 else None
                         }
                         if 'user_id' in st.session_state:
                             dados_update['user_id'] = st.session_state.user_id
@@ -113,14 +145,16 @@ def modulo_disciplinas():
             df_view['nome_curso'] = 'N/A'
         
         # Renomear colunas para exibição
-        cols_to_show = ['id', 'nome', 'nome_prof', 'nome_curso']
+        cols_to_show = ['id', 'nome', 'nome_prof', 'nome_curso', 'total_aulas', 'limite_faltas']
         cols_to_show = [c for c in cols_to_show if c in df_view.columns]
         
         df_display = df_view[cols_to_show].rename(columns={
             'id': 'ID',
             'nome': 'Nome',
             'nome_prof': 'Professor',
-            'nome_curso': 'Curso'
+            'nome_curso': 'Curso',
+            'total_aulas': 'Total Aulas',
+            'limite_faltas': 'Limite Faltas'
         })
         
         st.dataframe(df_display, use_container_width=True, hide_index=True)      

@@ -1,5 +1,5 @@
 // =============================================================
-// apis/.../post_courses.xs — POST /courses
+// apis/.../post_courses.xs — POST /curso
 // =============================================================
 // Endpoint que cria um novo curso para o aluno autenticado.
 //
@@ -12,9 +12,8 @@
 //   3. O banco insere o novo registro vinculando ao usuário logado
 //   4. Retorna o registro recém-criado com seu ID gerado
 // =============================================================
-
-// Declara o endpoint POST na rota "/courses"
-query "courses" verb=POST {
+// Declara o endpoint POST na rota "/curso"
+query "curso" verb=POST {
   description = "Cria um novo curso vinculado ao aluno autenticado"
   // auth = "user": exige token JWT válido para identificar o dono do novo curso
   auth = "user"
@@ -30,8 +29,8 @@ query "courses" verb=POST {
 
   // Bloco stack: operações executadas no servidor
   stack {
-    // db.add: insere um novo registro na tabela "courses"
-    db.add "courses" {
+    // db.add: insere um novo registro na tabela "curso"
+    db.add "curso" {
       // data: objeto com os campos a serem inseridos no banco
       data = {
         // Vincula o curso ao usuário autenticado via $auth.id (token JWT)

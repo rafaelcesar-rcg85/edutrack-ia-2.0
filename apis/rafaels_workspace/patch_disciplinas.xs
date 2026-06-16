@@ -37,6 +37,12 @@ query "disciplinas" verb=PATCH {
     int course_id? {
       description = "Novo ID do curso"
     }
+    int total_aulas? {
+      description = "Novo total de aulas previstas"
+    }
+    int limite_faltas? {
+      description = "Novo limite máximo de faltas"
+    }
   }
 
   stack {
@@ -61,9 +67,11 @@ query "disciplinas" verb=PATCH {
       id = $input.id
       data = {
         // Se $input.nome for enviado → usa; senão → mantém $existing_disc.nome
-        nome      : $input.nome      ?? $existing_disc.nome
-        prof_id   : $input.prof_id   ?? $existing_disc.prof_id
-        course_id : $input.course_id ?? $existing_disc.course_id
+        nome         : $input.nome         ?? $existing_disc.nome
+        prof_id      : $input.prof_id      ?? $existing_disc.prof_id
+        course_id    : $input.course_id    ?? $existing_disc.course_id
+        total_aulas  : $input.total_aulas  ?? $existing_disc.total_aulas
+        limite_faltas: $input.limite_faltas ?? $existing_disc.limite_faltas
       }
     } as $updated_disc
   }

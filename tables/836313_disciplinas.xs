@@ -1,16 +1,17 @@
 // =============================================================
 // tables/836313_disciplinas.xs — Tabela de Disciplinas
 // =============================================================
+// Atualização: adicionados campos total_aulas e limite_faltas
+// para controle de frequência por disciplina.
 // Define a estrutura (schema) da tabela "disciplinas" no banco
 // de dados do Xano.
 //
 // Esta tabela armazena as disciplinas cadastradas pelo aluno.
 // Relacionamentos:
 //   disciplinas.prof_id   → professores.id (professor responsável)
-//   disciplinas.course_id → courses.id     (curso ao qual pertence)
+//   disciplinas.course_id → curso.id     (curso ao qual pertence)
 //   disciplinas.user_id   → user.id        (aluno dono do registro)
 // =============================================================
-
 table "disciplinas" {
   // auth = false: segurança gerenciada pelas APIs (auth = "user")
   auth = false
@@ -36,7 +37,7 @@ table "disciplinas" {
     // Chave estrangeira: ID do curso ao qual a disciplina pertence
     // É opcional (?) pois uma disciplina pode existir sem curso definido
     int course_id? {
-      table = "courses"
+      table = "curso"
       description = "ID do curso ao qual esta disciplina pertence"
     }
 
@@ -44,6 +45,17 @@ table "disciplinas" {
     int user_id {
       table = "user"
       description = "ID do usuário (aluno) dono deste registro"
+    }
+
+    // Total de aulas previstas na disciplina — campo opcional
+    int total_aulas? {
+      description = "Total de aulas previstas na disciplina"
+    }
+
+    // Limite máximo de faltas permitidas — campo opcional
+    // Normalmente equivale a 25% do total_aulas (ex: 5 de 20)
+    int limite_faltas? {
+      description = "Número máximo de faltas permitidas na disciplina"
     }
 
     // Data de criação automática — preenchida pelo Xano no momento do INSERT

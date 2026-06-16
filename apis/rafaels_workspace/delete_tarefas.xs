@@ -1,53 +1,37 @@
 // =============================================================
-// apis/.../delete_tarefas.xs — DELETE /tarefas
+// apis/.../delete_tarefas.xs — DELETE /tarefas/{id}
 // =============================================================
 // Endpoint que remove uma tarefa/nota existente do aluno autenticado.
-//
-// Método HTTP: DELETE (remoção)
-// Autenticação: obrigatória (token JWT)
-//
-// Fluxo com verificação de propriedade:
-//   1. Busca a tarefa filtrando por id E user_id
-//   2. Se não encontrada → erro (proteção contra acesso não autorizado)
-//   3. Se encontrada → remove permanentemente do banco
 // =============================================================
-
-// Deleta uma tarefa existente
-query "tarefas" verb=DELETE {
-  description = "Deleta uma tarefa existente"
+// Deleta uma tarefa existente do aluno autenticado
+query "tarefas/{id}" verb=DELETE {
+  api_group = "Rafael's Workspace"
   auth = "user"
 
   input {
-    // ID da tarefa a ser removida — enviado no corpo da requisição
-    int id {
-      description = "ID da tarefa a ser deletada"
-    }
+    // ID da tarefa capturado da URL — ex: DELETE /tarefas/7
+    int id
   }
 
   stack {
-    // Busca a tarefa garantindo que pertence ao usuário
-    // A condição dupla evita que qualquer usuário autenticado delete
-    // tarefas de outros usuários — apenas o dono pode deletar
-    db.get "tarefas" {
-      where = ($db.tarefas.id == $input.id) && ($db.tarefas.user_id == $auth.id)
+    // Passo 1: Busca o registro pelo ID
+    db.get tarefas {
+      field_name = "id"
+      field_value = $input.id
     } as $existing_tarefa
-    
-    // Se a tarefa não for encontrada (ou pertencer a outro usuário), lança erro
-    precondition {
-      if ($existing_tarefa == null) {
-        throw "Tarefa não encontrada ou acesso negado"
-      }
+
+    // Passo 2: Verifica se pertence ao usuário logado
+    precondition ($existing_tarefa != null && $existing_tarefa.user_id == $auth.id) {
+      error_type = "accessdenied"
+      error = "Tarefa não encontrada ou acesso negado"
     }
 
-    // Remove o registro do banco de dados permanentemente
-    db.delete "tarefas" {
-      where = $db.tarefas.id == $input.id
+    // Passo 3: Remove o registro do banco de dados
+    db.del tarefas {
+      field_name = "id"
+      field_value = $input.id
     }
   }
 
-  // Retorna confirmação de sucesso para o cliente
-  response = {
-    success: true
-    message: "Tarefa deletada com sucesso"
-  }
+  response = {success: true, message: "Tarefa deletada com sucesso"}
 }
