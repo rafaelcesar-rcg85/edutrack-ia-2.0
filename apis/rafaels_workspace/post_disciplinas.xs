@@ -31,8 +31,16 @@ query "disciplinas" verb=POST {
       description = "ID do professor responsável"
     }
     // ID do curso ao qual a disciplina pertence
-    int course_id {
+    int curso_id {
       description = "ID do curso"
+    }
+    // Total de aulas previstas na disciplina — opcional
+    int total_aulas? {
+      description = "Total de aulas previstas na disciplina"
+    }
+    // Limite máximo de faltas permitidas — opcional
+    int limite_faltas? {
+      description = "Número máximo de faltas permitidas"
     }
   }
 
@@ -41,12 +49,14 @@ query "disciplinas" verb=POST {
     db.add "disciplinas" {
       data = {
         // $auth.id: ID do usuário logado, obtido automaticamente do token JWT
-        user_id   : $auth.id
-        course_id : $input.course_id
-        prof_id   : $input.prof_id
-        nome      : $input.nome
+        user_id      : $auth.id
+        curso_id     : $input.curso_id
+        prof_id      : $input.prof_id
+        nome         : $input.nome
+        total_aulas  : $input.total_aulas   // null se não enviado
+        limite_faltas: $input.limite_faltas  // null se não enviado
         // "now": expressão Xano que registra o timestamp atual
-        created_at: "now"
+        created_at   : "now"
       }
     } as $new_disc  // Variável com o registro criado
   }

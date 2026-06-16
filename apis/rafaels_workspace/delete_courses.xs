@@ -1,5 +1,5 @@
 // =============================================================
-// apis/.../delete_courses.xs — DELETE /courses/{courses_id}
+// apis/.../delete_courses.xs — DELETE /curso/{curso_id}
 // =============================================================
 // Endpoint que remove um curso do aluno autenticado.
 //
@@ -15,15 +15,14 @@
 // ATENÇÃO: A exclusão é permanente. Dados filhos (disciplinas,
 // tarefas) vinculados a este curso podem ficar órfãos.
 // =============================================================
-
-// DELETE /courses/{courses_id} — ex: DELETE /courses/42
-query "courses/{courses_id}" verb=DELETE {
+// DELETE /curso/{curso_id} — ex: DELETE /curso/42
+query "curso/{curso_id}" verb=DELETE {
   description = "Remove um curso pertencente ao aluno autenticado"
   auth = "user"
 
   input {
     // ID do curso capturado do caminho da URL (path parameter)
-    int courses_id {
+    int curso_id {
       description = "ID do curso a ser removido"
     }
   }
@@ -31,9 +30,9 @@ query "courses/{courses_id}" verb=DELETE {
   stack {
     // Verifica se o curso pertence ao aluno autenticado
     // Passo 1: Busca o registro pelo ID
-    db.get "courses" {
+    db.get "curso" {
       field_name  = "id"
-      field_value = $input.courses_id
+      field_value = $input.curso_id
     } as $course
 
     // Passo 2: Valida a propriedade — o user_id do curso deve ser igual ao $auth.id
@@ -45,9 +44,9 @@ query "courses/{courses_id}" verb=DELETE {
     }
 
     // Passo 3: Remove o registro do banco de dados permanentemente
-    db.del "courses" {
+    db.del "curso" {
       field_name  = "id"
-      field_value = $input.courses_id
+      field_value = $input.curso_id
     }
   }
 

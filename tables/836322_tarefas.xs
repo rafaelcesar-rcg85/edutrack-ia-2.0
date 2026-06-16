@@ -9,7 +9,7 @@
 //
 // Relacionamentos:
 //   tarefas.disc_id   → disciplinas.id (disciplina da atividade)
-//   tarefas.course_id → courses.id     (curso ao qual pertence)
+//   tarefas.course_id → curso.id     (curso ao qual pertence)
 //   tarefas.user_id   → user.id        (aluno dono do registro)
 // =============================================================
 
@@ -37,7 +37,7 @@ table "tarefas" {
     // Chave estrangeira: vincula a tarefa a um curso (opcional)
     // Permite filtrar tarefas por curso no GET
     int course_id? {
-      table = "courses"
+      table = "curso"
       description = "ID do curso ao qual esta tarefa está vinculada"
     }
 

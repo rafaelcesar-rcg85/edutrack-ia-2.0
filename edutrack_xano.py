@@ -61,6 +61,7 @@ dashboard_page  = st.Page("pages/dashboard.py",     title="Painel Geral",       
 cursos_page     = st.Page("pages/cursos.py",         title="Cursos",             icon="🎓")
 professores_page= st.Page("pages/professores.py",   title="Professores",        icon="👨‍🏫")
 disciplinas_page= st.Page("pages/disciplinas.py",   title="Disciplinas",        icon="📚")
+frequencia_page  = st.Page("pages/frequencia.py",    title="Frequência",           icon="📅")
 tarefas_page    = st.Page("pages/tarefas.py",        title="Tarefas/Notas",      icon="📝")
 relatorios_page  = st.Page("pages/relatorios.py",     title="Relatórios",         icon="📋")
 profile_page     = st.Page("pages/profile.py",        title="Meu Perfil",         icon="👤")
@@ -126,7 +127,7 @@ else:
     # Dicionário de páginas agrupadas (o nome da chave vira um cabeçalho no menu)
     pages = {
         # Grupo sem título (string vazia) contém as páginas principais
-        "": [dashboard_page, cursos_page, professores_page, disciplinas_page, tarefas_page, relatorios_page, profile_page, config_page]
+        "": [dashboard_page, cursos_page, professores_page, disciplinas_page, frequencia_page, tarefas_page, relatorios_page, profile_page, config_page]
     }
     
     # Se o usuário tiver papel de admin, adiciona o grupo de Administração
