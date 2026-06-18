@@ -128,13 +128,6 @@
   },
   {
     "id": 0,
-    "path": "apis/rafaels_workspace/post_courses.xs",
-    "status": "new",
-    "type": "api_endpoint",
-    "staged": false
-  },
-  {
-    "id": 0,
     "path": "apis/rafaels_workspace/post_disciplinas.xs",
     "status": "new",
     "type": "api_endpoint",
@@ -262,6 +255,13 @@
   {
     "id": 0,
     "path": "apis/authentication/delete_faltas.xs",
+    "status": "new",
+    "type": "api_endpoint",
+    "staged": false
+  },
+  {
+    "id": 0,
+    "path": "apis/rafaels_workspace/post_curso.xs",
     "status": "new",
     "type": "api_endpoint",
     "staged": false

@@ -6,6 +6,383 @@ import requests
 from utils.api import api_get, BASE_URL, USER_PROFILES_URL
 from utils.theme import apply_theme
 
+def calcular_media_disciplina(disc_id, df_tarefas, disc_info):
+    """
+    Calcula a média final ponderada de uma disciplina com base na fórmula:
+    MF = (MAP * peso_map + PROVA_FINAL * peso_prova + PAI * peso_pai) / 100
+    Se alguma categoria estiver sem notas, os pesos são redistribuídos proporcionalmente.
+    """
+    p_map = int(disc_info.get('peso_map') if disc_info.get('peso_map') is not None else 30)
+    p_prova = int(disc_info.get('peso_prova') if disc_info.get('peso_prova') is not None else 50)
+    p_pai = int(disc_info.get('peso_pai') if disc_info.get('peso_pai') is not None else 20)
+    
+    if df_tarefas.empty:
+        return None, {}
+        
+    df_disc = df_tarefas[(df_tarefas['disc_id'] == disc_id) & (df_tarefas['status'] == 'Concluída')]
+    if df_disc.empty:
+        return None, {}
+        
+    notas_por_tipo = {}
+    for _, row in df_disc.iterrows():
+        t = str(row.get('tipo') or 'OUTRO').upper()
+        nota = row.get('nota')
+        if nota is not None and not pd.isna(nota):
+            if t not in notas_por_tipo:
+                notas_por_tipo[t] = []
+            notas_por_tipo[t].append(float(nota))
+            
+    map_grades = notas_por_tipo.get('MAP', [])
+    map_avg = sum(map_grades) / len(map_grades) if map_grades else None
+    
+    prova_grades = notas_por_tipo.get('PROVA', [])
+    sub_grades = notas_por_tipo.get('SUB', [])
+    
+    prova_val = prova_grades[0] if prova_grades else None
+    sub_val = sub_grades[0] if sub_grades else None
+    
+    prova_final_val = None
+    if prova_val is not None and sub_val is not None:
+        prova_final_val = max(prova_val, sub_val)
+    elif prova_val is not None:
+        prova_final_val = prova_val
+    elif sub_val is not None:
+        prova_final_val = sub_val
+        
+    pai_grades = notas_por_tipo.get('PAI', [])
+    pai_val = pai_grades[0] if pai_grades else None
+    
+    pesos_ativos = []
+    notas_ativas = []
+    
+    if map_avg is not None:
+        pesos_ativos.append(p_map)
+        notas_ativas.append(map_avg * p_map)
+    if prova_final_val is not None:
+        pesos_ativos.append(p_prova)
+        notas_ativas.append(prova_final_val * p_prova)
+    if pai_val is not None:
+        pesos_ativos.append(p_pai)
+        notas_ativas.append(pai_val * p_pai)
+        
+    soma_pesos = sum(pesos_ativos)
+    if soma_pesos == 0:
+        return None, {}
+        
+    mf = sum(notas_ativas) / soma_pesos
+    
+    detalhes = {
+        'map_grades': map_grades,
+        'map_avg': map_avg,
+        'prova_original': prova_val,
+        'sub_grade': sub_val,
+        'prova_final': prova_final_val,
+        'pai_grade': pai_val,
+        'peso_map': p_map,
+        'peso_prova': p_prova,
+        'peso_pai': p_pai,
+        'mf': mf,
+        'soma_pesos': soma_pesos
+    }
+    return mf, detalhes
+
+def get_situacao_freq(faltas_count, limite):
+    if limite is None or limite == 0:
+        return "⚪", "Limite não configurado", "#888888"
+    if faltas_count >= limite:
+        return "🔴", "Reprovado por Faltas", "#e74c3c"
+    if faltas_count >= limite * 0.75:
+        return "🟡", "Atenção — próximo do limite", "#f39c12"
+    return "🟢", "Frequência Regular", "#27ae60"
+
+def gerar_pdf_bytes(student_full_name, user_email, dob_str, media_geral, taxa_conclusao, num_tarefas, num_disciplinas, disciplinas, tarefas, professores, todas_faltas, df_filtrado_raw, cursos):
+    from fpdf import FPDF
+    import os
+    import unicodedata
+    import datetime
+    
+    def clean_text(text):
+        if not text:
+            return ""
+        return "".join(
+            c for c in unicodedata.normalize('NFD', str(text))
+            if unicodedata.category(c) != 'Mn'
+        )
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    
+    # Tenta carregar Arial Unicode do Windows, caso contrário usa Helvetica
+    unicode_mode = False
+    font_path = "C:\\Windows\\Fonts\\arial.ttf"
+    font_bold_path = "C:\\Windows\\Fonts\\arialbd.ttf"
+    if os.path.exists(font_path) and os.path.exists(font_bold_path):
+        try:
+            pdf.add_font("Arial", "", font_path)
+            pdf.add_font("Arial", "B", font_bold_path)
+            pdf.set_font("Arial", size=10)
+            unicode_mode = True
+        except:
+            pass
+            
+    if not unicode_mode:
+        pdf.set_font("helvetica", size=10)
+        
+    def txt(s):
+        if not unicode_mode:
+            return clean_text(s)
+        return str(s)
+
+    # 1. HEADER BANNER
+    pdf.set_fill_color(108, 92, 231) # #6c5ce7 -> RGB 108, 92, 231
+    pdf.rect(0, 0, 210, 38, 'F')
+    
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 18)
+    pdf.set_y(10)
+    pdf.cell(0, 8, txt("EduTrack AI - Relatório Acadêmico"), ln=True, align="C")
+    
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "", 10)
+    pdf.cell(0, 6, txt(f"Gerado em: {datetime.date.today().strftime('%d/%m/%Y')}"), ln=True, align="C")
+    pdf.ln(18)
+    
+    # 2. STUDENT INFO
+    pdf.set_text_color(50, 50, 50)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 12)
+    pdf.cell(0, 8, txt("Informações do Estudante"), ln=True)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(3)
+    
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "", 10)
+    pdf.cell(90, 6, txt(f"Nome: {student_full_name}"), ln=False)
+    pdf.cell(90, 6, txt(f"E-mail: {user_email or 'Não informado'}"), ln=True)
+    pdf.cell(90, 6, txt(f"Nascimento: {dob_str}"), ln=True)
+    pdf.ln(6)
+    
+    # 3. KPI CARDS
+    pdf.set_fill_color(245, 245, 247)
+    pdf.set_draw_color(220, 220, 220)
+    
+    w_card = 41.25
+    h_card = 22
+    y_start = pdf.get_y()
+    
+    # Card 1: Média Geral
+    x1 = 15
+    pdf.rect(x1, y_start, w_card, h_card, 'FD')
+    pdf.set_xy(x1, y_start + 2)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 8)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(w_card, 5, txt("MÉDIA GERAL"), align="C")
+    pdf.set_xy(x1, y_start + 8)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 14)
+    pdf.set_text_color(108, 92, 231)
+    pdf.cell(w_card, 10, f"{media_geral:.2f}", align="C")
+    
+    # Card 2: Taxa de Conclusão
+    x2 = 15 + w_card + 5
+    pdf.rect(x2, y_start, w_card, h_card, 'FD')
+    pdf.set_xy(x2, y_start + 2)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 8)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(w_card, 5, txt("CONCLUSÃO"), align="C")
+    pdf.set_xy(x2, y_start + 8)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 14)
+    pdf.set_text_color(39, 174, 96)
+    pdf.cell(w_card, 10, f"{taxa_conclusao:.1f}%", align="C")
+    
+    # Card 3: Atividades
+    x3 = 15 + 2*w_card + 10
+    pdf.rect(x3, y_start, w_card, h_card, 'FD')
+    pdf.set_xy(x3, y_start + 2)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 8)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(w_card, 5, txt("ATIVIDADES"), align="C")
+    pdf.set_xy(x3, y_start + 8)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 14)
+    pdf.set_text_color(230, 126, 34)
+    pdf.cell(w_card, 10, f"{num_tarefas}", align="C")
+    
+    # Card 4: Disciplinas
+    x4 = 15 + 3*w_card + 15
+    pdf.rect(x4, y_start, w_card, h_card, 'FD')
+    pdf.set_xy(x4, y_start + 2)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 8)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(w_card, 5, txt("DISCIPLINAS"), align="C")
+    pdf.set_xy(x4, y_start + 8)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 14)
+    pdf.set_text_color(41, 128, 185)
+    pdf.cell(w_card, 10, f"{num_disciplinas}", align="C")
+    
+    pdf.set_xy(15, y_start + h_card + 8)
+    
+    # 4. BOLETIM DETALHADO TABLE
+    pdf.set_text_color(50, 50, 50)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 12)
+    pdf.cell(0, 8, txt("Boletim Acadêmico Detalhado"), ln=True)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(3)
+    
+    pdf.set_fill_color(240, 240, 240)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 8)
+    pdf.cell(50, 8, txt("Disciplina"), border=1, fill=True)
+    pdf.cell(15, 8, txt("MAP"), border=1, fill=True, align="C")
+    pdf.cell(15, 8, txt("Prova"), border=1, fill=True, align="C")
+    pdf.cell(15, 8, txt("PAI"), border=1, fill=True, align="C")
+    pdf.cell(20, 8, txt("Faltas"), border=1, fill=True, align="C")
+    pdf.cell(45, 8, txt("Cálculo Ponderado"), border=1, fill=True, align="C")
+    pdf.cell(20, 8, txt("Média Final"), border=1, fill=True, align="C")
+    pdf.ln()
+    
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "", 8)
+    if disciplinas:
+        df_t_raw = pd.DataFrame(tarefas) if tarefas else pd.DataFrame()
+        map_c = {c['id']: c.get('curso', c.get('name', 'Sem Curso')) for c in (cursos or [])}
+        
+        for d in disciplinas:
+            mf, det = calcular_media_disciplina(d['id'], df_t_raw, d)
+            c_nome = map_c.get(d.get('curso_id') or d.get('course_id'), 'Sem Curso')
+            
+            faltas_disc = [f for f in todas_faltas if f.get("disc_id") == d['id']] if todas_faltas else []
+            total_faltas = sum(f.get("peso") or 1 for f in faltas_disc)
+            limite_faltas = d.get('limite_faltas') or 0
+            limite_txt = f"/{limite_faltas}" if limite_faltas > 0 else ""
+            
+            map_str = f"{det['map_avg']:.1f}" if det and det.get('map_avg') is not None else "-"
+            prova_str = f"{det['prova_final']:.1f}" if det and det.get('prova_final') is not None else "-"
+            pai_str = f"{det['pai_grade']:.1f}" if det and det.get('pai_grade') is not None else "-"
+            
+            formula = "-"
+            if det:
+                parts = []
+                if det['map_avg'] is not None:
+                    parts.append(f"({det['map_avg']:.1f}x{det['peso_map']})")
+                if det['prova_final'] is not None:
+                    parts.append(f"({det['prova_final']:.1f}x{det['peso_prova']})")
+                if det['pai_grade'] is not None:
+                    parts.append(f"({det['pai_grade']:.1f}x{det['peso_pai']})")
+                formula = " + ".join(parts) + f" / {det['soma_pesos']}"
+            
+            mf_str = f"{mf:.2f}" if mf is not None else "-"
+            
+            pdf.cell(50, 8, txt(d['nome']), border=1)
+            pdf.cell(15, 8, map_str, border=1, align="C")
+            pdf.cell(15, 8, prova_str, border=1, align="C")
+            pdf.cell(15, 8, pai_str, border=1, align="C")
+            pdf.cell(20, 8, f"{total_faltas}{limite_txt}", border=1, align="C")
+            pdf.cell(45, 8, txt(formula), border=1, align="C")
+            pdf.cell(20, 8, mf_str, border=1, align="C")
+            pdf.ln()
+    else:
+        pdf.cell(180, 8, txt("Nenhum boletim disponível."), border=1, align="C")
+        pdf.ln()
+    pdf.ln(5)
+    
+    # 5. TAREFAS HISTORICO TABLE
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 12)
+    pdf.cell(0, 8, txt("Histórico de Tarefas, Atividades e Notas"), ln=True)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(3)
+    
+    pdf.set_fill_color(240, 240, 240)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 8)
+    pdf.cell(50, 8, txt("Atividade"), border=1, fill=True)
+    pdf.cell(45, 8, txt("Curso"), border=1, fill=True)
+    pdf.cell(45, 8, txt("Disciplina"), border=1, fill=True)
+    pdf.cell(15, 8, txt("Status"), border=1, fill=True, align="C")
+    pdf.cell(15, 8, txt("Prazo"), border=1, fill=True, align="C")
+    pdf.cell(10, 8, txt("Nota"), border=1, fill=True, align="C")
+    pdf.ln()
+    
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "", 7)
+    if df_filtrado_raw is not None and not df_filtrado_raw.empty:
+        for _, row in df_filtrado_raw.iterrows():
+            nome_t = row.get('nome', '-')
+            curso_n = row.get('nome_curso', '-')
+            disc_n = row.get('nome_disc', '-')
+            status_t = row.get('status', '-')
+            
+            d_val = row.get('data_entrega')
+            prazo = "-"
+            if d_val:
+                try:
+                    dt = datetime.datetime.fromisoformat(str(d_val).split('T')[0])
+                    if dt.year > 1970:
+                        prazo = dt.strftime('%d/%m/%Y')
+                except:
+                    pass
+                    
+            nota_val = row.get('nota')
+            nota_desc = f"{float(nota_val):.1f}" if nota_val is not None and not pd.isna(nota_val) else "-"
+            
+            nome_t = (nome_t[:28] + '...') if len(str(nome_t)) > 30 else nome_t
+            curso_n = (curso_n[:25] + '...') if len(str(curso_n)) > 27 else curso_n
+            disc_n = (disc_n[:25] + '...') if len(str(disc_n)) > 27 else disc_n
+            
+            pdf.cell(50, 6, txt(nome_t), border=1)
+            pdf.cell(45, 6, txt(curso_n), border=1)
+            pdf.cell(45, 6, txt(disc_n), border=1)
+            pdf.cell(15, 6, txt(status_t), border=1, align="C")
+            pdf.cell(15, 6, prazo, border=1, align="C")
+            pdf.cell(10, 6, nota_desc, border=1, align="C")
+            pdf.ln()
+    else:
+        pdf.cell(180, 8, txt("Nenhuma atividade filtrada."), border=1, align="C")
+        pdf.ln()
+    pdf.ln(5)
+    
+    # 6. DOCENTES & CONTATOS
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 12)
+    pdf.cell(0, 8, txt("Disciplinas, Professores & Contatos"), ln=True)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(3)
+    
+    # Cabeçalho Docentes
+    pdf.set_fill_color(240, 240, 240)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 8)
+    pdf.cell(55, 8, txt("Disciplina"), border=1, fill=True)
+    pdf.cell(60, 8, txt("Professor"), border=1, fill=True)
+    pdf.cell(65, 8, txt("E-mail de Contato"), border=1, fill=True)
+    pdf.ln()
+    
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "", 8)
+    if disciplinas:
+        df_d = pd.DataFrame(disciplinas)
+        df_p = pd.DataFrame(professores) if professores else pd.DataFrame()
+        df_c = pd.DataFrame(cursos) if cursos else pd.DataFrame()
+        
+        if not df_p.empty:
+            df_merged_d = df_d.merge(df_p[['id', 'nome', 'email']], left_on='prof_id', right_on='id', how='left', suffixes=('', '_prof'))
+            df_merged_d['nome_prof'] = df_merged_d['nome_prof'].fillna('N/A')
+            df_merged_d['email_prof'] = df_merged_d['email'].fillna('Nao informado')
+        else:
+            df_merged_d = df_d.copy()
+            df_merged_d['nome_prof'] = 'N/A'
+            df_merged_d['email_prof'] = 'Nao informado'
+            
+        for _, row in df_merged_d.iterrows():
+            d_nome = row.get('nome', '-')
+            p_nome = row.get('nome_prof', '-')
+            p_email = row.get('email_prof', '-')
+            
+            pdf.cell(55, 7, txt(d_nome), border=1)
+            pdf.cell(60, 7, txt(p_nome), border=1)
+            pdf.cell(65, 7, txt(p_email), border=1)
+            pdf.ln()
+    else:
+        pdf.cell(180, 8, txt("Nenhuma disciplina ou professor cadastrado."), border=1, align="C")
+        pdf.ln()
+    pdf.ln(5)
+
+    # 7. FOOTER SYSTEM SIGNATURE
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "I", 8)
+    pdf.set_text_color(160, 160, 160)
+    pdf.cell(0, 10, txt("EduTrack AI - Relatorio Academico. Gerado automaticamente pelo sistema."), align="C")
+    
+    return bytes(pdf.output())
+
 def modulo_relatorios():
     apply_theme()
     st.markdown("<style>.block-container{padding-top: 2rem;}</style>", unsafe_allow_html=True)
@@ -38,10 +415,11 @@ def modulo_relatorios():
         pass
 
     # Buscar entidades do Xano
-    professores = api_get('professores')
-    disciplinas = api_get('disciplinas')
-    tarefas = api_get('tarefas')
-    cursos = api_get('curso')
+    professores = api_get('professores') or []
+    disciplinas = api_get('disciplinas') or []
+    tarefas = api_get('tarefas') or []
+    cursos = api_get('curso') or []
+    todas_faltas = api_get('faltas') or []
     
     if cursos:
         for c in cursos:
@@ -51,6 +429,30 @@ def modulo_relatorios():
     if not professores and not disciplinas and not tarefas and not cursos:
         st.info("Ainda não há dados registrados para gerar o relatório. Cadastre cursos, disciplinas e tarefas para começar!")
         return
+
+    # Filtro Global de Curso no começo da página
+    opcoes_cursos_filtro = ["Todos os Cursos"]
+    if cursos:
+        opcoes_cursos_filtro += sorted(list(set(c.get('curso', c.get('name', 'Sem Nome')) for c in cursos)))
+        
+    filtro_curso_global = st.selectbox("🎯 Filtrar Relatório por Curso", options=opcoes_cursos_filtro, key="filtro_relatorio_curso_global")
+    
+    # Aplicar filtro aos dados
+    if filtro_curso_global != "Todos os Cursos":
+        selected_curso_id = None
+        for c in cursos:
+            if c.get('curso') == filtro_curso_global:
+                selected_curso_id = c['id']
+                break
+                
+        if selected_curso_id is not None:
+            cursos = [c for c in cursos if c['id'] == selected_curso_id]
+            disciplinas = [d for d in disciplinas if (d.get('curso_id') == selected_curso_id or d.get('course_id') == selected_curso_id)]
+            disc_ids = {d['id'] for d in disciplinas}
+            tarefas = [t for t in tarefas if (t.get('curso_id') == selected_curso_id or t.get('course_id') == selected_curso_id or t.get('disc_id') in disc_ids)]
+            todas_faltas = [f for f in todas_faltas if (f.get('course_id') == selected_curso_id or f.get('curso_id') == selected_curso_id or f.get('disc_id') in disc_ids)]
+            prof_ids = {d.get('prof_id') for d in disciplinas if d.get('prof_id')}
+            professores = [p for p in professores if p['id'] in prof_ids]
 
     # Processar nome e dados do aluno para o cabeçalho do relatório
     session_name = st.session_state.get('user_name', 'Estudante')
@@ -80,9 +482,15 @@ def modulo_relatorios():
     
     taxa_conclusao = (num_concluidas / num_tarefas * 100) if num_tarefas > 0 else 0.0
     
-    # Calcular média de notas (apenas concluídas e com nota válida)
-    notas_validas = [float(t.get('nota')) for t in tarefas_concluidas if t.get('nota') is not None]
-    media_geral = (sum(notas_validas) / len(notas_validas)) if notas_validas else 0.0
+    # Calcular média geral com base nas médias finais ponderadas das disciplinas
+    df_t_raw = pd.DataFrame(tarefas) if tarefas else pd.DataFrame()
+    medias_validas = []
+    if disciplinas and not df_t_raw.empty:
+        for d in disciplinas:
+            mf, det = calcular_media_disciplina(d['id'], df_t_raw, d)
+            if mf is not None:
+                medias_validas.append(mf)
+    media_geral = sum(medias_validas) / len(medias_validas) if medias_validas else 0.0
 
     # 3. EXIBIÇÃO DE METRICAS VISUAIS (DESIGN PREMIUM)
     st.markdown(f"""
@@ -137,25 +545,26 @@ def modulo_relatorios():
         # Gráfico de Desempenho por Disciplina
         if tarefas and disciplinas:
             df_t = pd.DataFrame(tarefas)
-            df_d = pd.DataFrame(disciplinas)
-            df_merged = df_t.merge(df_d, left_on='disc_id', right_on='id', suffixes=('_t', '_d'))
             
-            # Filtro para notas
-            df_concluidas = df_merged[(df_merged['status'] == 'Concluída') & (df_merged['nota'].notna())]
+            # Calcular média final ponderada por disciplina
+            medias_disciplinas = []
+            for d in disciplinas:
+                mf, _ = calcular_media_disciplina(d['id'], df_t, d)
+                if mf is not None:
+                    medias_disciplinas.append({
+                        'Disciplina': d['nome'],
+                        'Média de Notas': round(mf, 2)
+                    })
+            df_media_disc = pd.DataFrame(medias_disciplinas)
             
-            if not df_concluidas.empty:
-                df_concluidas['nota'] = df_concluidas['nota'].astype(float)
-                # Agrupar e calcular média por disciplina
-                df_media_disc = df_concluidas.groupby('nome_d')['nota'].mean().reset_index()
-                df_media_disc.columns = ['Disciplina', 'Média de Notas']
-                
+            if not df_media_disc.empty:
                 fig_bar = px.bar(
                     df_media_disc, 
                     x='Disciplina', 
                     y='Média de Notas',
                     color='Média de Notas',
                     color_continuous_scale=px.colors.sequential.Purples[2:], # Evitar o tom mais claro
-                    title='Média de Notas por Disciplina'
+                    title='Média Final Ponderada por Disciplina'
                 )
                 
                 # Adicionando um contorno (borda) nas colunas para garantir que mesmo cores claras fiquem visíveis
@@ -200,6 +609,154 @@ def modulo_relatorios():
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("Registre tarefas para visualizar a distribuição de status.")
+
+    st.markdown("<br><hr style='border-top: 1px solid #eee;'><br>", unsafe_allow_html=True)
+
+    # 4.5 BOLETIM ACADÊMICO DETALHADO PONDERADO
+    st.subheader('🎓 Boletim Acadêmico Detalhado')
+    st.write('Detalhamento da Média Final (MF) de cada disciplina com base nas notas parciais e respectivos pesos.')
+    
+    if disciplinas and tarefas:
+        df_t_calc = pd.DataFrame(tarefas)
+        map_c = {c['id']: c.get('curso', c.get('name', 'Sem Curso')) for c in (cursos or [])}
+        
+        for d in disciplinas:
+            mf, det = calcular_media_disciplina(d['id'], df_t_calc, d)
+            c_nome = map_c.get(d.get('curso_id') or d.get('course_id'), 'Sem Curso')
+            
+            # Calcular faltas da disciplina
+            faltas_disc = [f for f in todas_faltas if f.get("disc_id") == d['id']] if todas_faltas else []
+            total_faltas = sum(f.get("peso") or 1 for f in faltas_disc)
+            limite_faltas = d.get('limite_faltas') or 0
+            limite_texto = f" / {limite_faltas}" if limite_faltas > 0 else ""
+            
+            with st.container():
+                border_color = "#27ae60" if (mf is not None and mf >= 6.0) else ("#e74c3c" if mf is not None else "#ccc")
+                bg_color = "#f4fcf7" if (mf is not None and mf >= 6.0) else ("#fdf5f5" if mf is not None else "#fafafa")
+                status_text = "🟢 Aprovado" if (mf is not None and mf >= 6.0) else ("🔴 Reprovado" if mf is not None else "⏳ Em andamento")
+                
+                st.markdown(f"""
+                <div style="background-color: {bg_color}; border: 1px solid {border_color}; border-left: 6px solid {border_color}; padding: 18px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div>
+                            <h4 style="margin: 0; color: #333;">{d['nome']}</h4>
+                            <p style="margin: 0; color: #777; font-size: 0.85em;">🎓 Curso: {c_nome}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 0.85em; font-weight: bold; color: {border_color}; padding: 3px 8px; border-radius: 9999px; background-color: {border_color}1a;">{status_text}</span>
+                            <h3 style="margin: 5px 0 0 0; color: #333;">MF: {f"{mf:.2f}" if mf is not None else "N/A"}</h3>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Exibe os cards de frequência para cada disciplina
+                t_theme = st.session_state.get("theme", {})
+                primary = t_theme.get("primary", "#6c5ce7")
+                total_aulas = d.get("total_aulas") or 0
+                total_presencas = max(0, total_aulas - total_faltas) if total_aulas > 0 else None
+                pct_presenca = (total_presencas / total_aulas * 100) if total_aulas > 0 else None
+                valor_pct = f"{pct_presenca:.1f}%" if pct_presenca is not None else "—"
+                icone_f, label_f, cor_f = get_situacao_freq(total_faltas, limite_faltas if limite_faltas > 0 else None)
+                lim_texto = str(limite_faltas) if limite_faltas > 0 else "—"
+                
+                fc1, fc2, fc3, fc4 = st.columns(4)
+                with fc1:
+                    st.markdown(
+                        f"""<div style='background: {primary}18; border: 1px solid {primary}44;
+                            border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 20px;'>
+                            <p style='font-size: 13px; color: #888; margin: 0;'>Total de Aulas</p>
+                            <p style='font-size: 32px; font-weight: 700; margin: 4px 0; color: {primary};'>
+                                {total_aulas if total_aulas > 0 else "—"}
+                            </p>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+                with fc2:
+                    st.markdown(
+                        f"""<div style='background: #e74c3c18; border: 1px solid #e74c3c44;
+                            border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 20px;'>
+                            <p style='font-size: 13px; color: #888; margin: 0;'>Faltas Registradas</p>
+                            <p style='font-size: 32px; font-weight: 700; margin: 4px 0; color: #e74c3c;'>
+                                {total_faltas}
+                            </p>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+                with fc3:
+                    st.markdown(
+                        f"""<div style='background: #27ae6018; border: 1px solid #27ae6044;
+                            border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 20px;'>
+                            <p style='font-size: 13px; color: #888; margin: 0;'>% de Presença</p>
+                            <p style='font-size: 32px; font-weight: 700; margin: 4px 0; color: #27ae60;'>
+                                {valor_pct}
+                            </p>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+                with fc4:
+                    st.markdown(
+                        f"""<div style='background: {cor_f}18; border: 1px solid {cor_f}55;
+                            border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 20px;'>
+                            <p style='font-size: 13px; color: #888; margin: 0;'>Situação</p>
+                            <p style='font-size: 18px; font-weight: 700; margin: 4px 0; color: {cor_f}; line-height: 1.25;'>
+                                {icone_f} {label_f}
+                            </p>
+                            <p style='font-size: 11px; color: #aaa; margin: 0;'>
+                                Limite: {lim_texto} faltas
+                            </p>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+                
+                if det:
+                    bc1, bc2, bc3 = st.columns(3)
+                    with bc1:
+                        st.markdown("**Composição das Notas**")
+                        # MAP
+                        map_lbl = ", ".join([f"{n:.1f}" for n in det['map_grades']]) if det['map_grades'] else "-"
+                        st.markdown(f"**MAPs**: {map_lbl}")
+                        if det['map_avg'] is not None:
+                            st.markdown(f"👉 *Média MAP:* `{det['map_avg']:.2f}`")
+                            
+                        # Provas
+                        prova_lbl = f"{det['prova_original']:.1f}" if det['prova_original'] is not None else "-"
+                        sub_lbl = f"{det['sub_grade']:.1f}" if det['sub_grade'] is not None else "-"
+                        st.markdown(f"**Regular**: {prova_lbl} | **SUB**: {sub_lbl}")
+                        if det['prova_final'] is not None:
+                            st.markdown(f"👉 *Prova Considerada:* `{det['prova_final']:.2f}`")
+                            
+                        # PAI
+                        pai_lbl = f"{det['pai_grade']:.1f}" if det['pai_grade'] is not None else "-"
+                        st.markdown(f"**PAI**: {pai_lbl}")
+                        
+                    with bc2:
+                        st.markdown("**Configuração de Pesos**")
+                        st.markdown(f"- **Peso MAP**: `{det['peso_map']}%`")
+                        st.markdown(f"- **Peso Prova**: `{det['peso_prova']}%`")
+                        st.markdown(f"- **Peso PAI**: `{det['peso_pai']}%`")
+                        
+                    with bc3:
+                        st.markdown("**Cálculo Ponderado**")
+                        parts = []
+                        if det['map_avg'] is not None:
+                            parts.append(f"({det['map_avg']:.2f} × {det['peso_map']})")
+                        if det['prova_final'] is not None:
+                            parts.append(f"({det['prova_final']:.2f} × {det['peso_prova']})")
+                        if det['pai_grade'] is not None:
+                            parts.append(f"({det['pai_grade']:.2f} × {det['peso_pai']})")
+                            
+                        formula_str = " + ".join(parts)
+                        if formula_str:
+                            st.markdown(f"`({formula_str}) / {det['soma_pesos']}`")
+                            st.markdown(f"**Média Calculada:** `{det['mf']:.2f}`")
+                        else:
+                            st.markdown("Nenhum cálculo disponível")
+                else:
+                    st.info("Nenhuma nota lançada para esta disciplina.")
+                st.markdown("<hr style='border-top: 1px dashed #eee; margin: 15px 0;'>", unsafe_allow_html=True)
+    else:
+        st.info("Cadastre disciplinas e notas para visualizar o boletim.")
 
     st.markdown("<br><hr style='border-top: 1px solid #eee;'><br>", unsafe_allow_html=True)
 
@@ -281,13 +838,17 @@ def modulo_relatorios():
     with tab_tarefas:
         if not df_filtrado_raw.empty:
             df_filtrado_ui = df_filtrado_raw.copy()
-            # Formatar a data para UI
+            # Formatar a data para UI, ocultando data padrão (1970)
             def format_date_ui(d):
                 if not d or pd.isna(d): return "-"
                 try:
                     if isinstance(d, int):
-                        return datetime.datetime.fromtimestamp(d/1000.0).strftime('%d/%m/%Y')
-                    return datetime.datetime.fromisoformat(str(d).split('T')[0]).strftime('%d/%m/%Y')
+                        dt = datetime.datetime.fromtimestamp(d/1000.0)
+                    else:
+                        dt = datetime.datetime.fromisoformat(str(d).split('T')[0])
+                    if dt.year <= 1970:
+                        return "-"
+                    return dt.strftime('%d/%m/%Y')
                 except:
                     return str(d)
             
@@ -423,6 +984,65 @@ def modulo_relatorios():
             html_cursos_status += f"<div><span>📅 MATRICULADO</span><p>{c_str}</p></div>"
         html_cursos_status += "</div>"
 
+    # Prepara Boletim Ponderado para o HTML
+    html_boletim_rows = ""
+    if disciplinas and not df_t_raw.empty:
+        map_c = {c['id']: c.get('curso', c.get('name', 'Sem Curso')) for c in (cursos or [])}
+        for d in disciplinas:
+            mf, det = calcular_media_disciplina(d['id'], df_t_raw, d)
+            c_nome = map_c.get(d.get('curso_id') or d.get('course_id'), 'Sem Curso')
+            
+            # Calcular faltas para o HTML
+            faltas_disc_html = [f for f in todas_faltas if f.get("disc_id") == d['id']] if todas_faltas else []
+            total_faltas_html = sum(f.get("peso") or 1 for f in faltas_disc_html)
+            limite_faltas_html = d.get('limite_faltas') or 0
+            limite_txt_html = f"/{limite_faltas_html}" if limite_faltas_html > 0 else ""
+            
+            if mf is not None:
+                sit = "APROVADO" if mf >= 6.0 else "REPROVADO"
+                sit_class = "nota-badge aprovado" if mf >= 6.0 else "nota-badge reprovado"
+                
+                map_str = f"{det['map_avg']:.1f}" if det['map_avg'] is not None else "-"
+                prova_str = f"{det['prova_final']:.1f}" if det['prova_final'] is not None else "-"
+                pai_str = f"{det['pai_grade']:.1f}" if det['pai_grade'] is not None else "-"
+                
+                parts = []
+                if det['map_avg'] is not None:
+                    parts.append(f"({det['map_avg']:.1f}x{det['peso_map']})")
+                if det['prova_final'] is not None:
+                    parts.append(f"({det['prova_final']:.1f}x{det['peso_prova']})")
+                if det['pai_grade'] is not None:
+                    parts.append(f"({det['pai_grade']:.1f}x{det['peso_pai']})")
+                formula = " + ".join(parts) + f" / {det['soma_pesos']}"
+                
+                html_boletim_rows += f"""
+                <tr>
+                    <td style="font-weight: 500;">
+                        {d['nome']}<br>
+                        <span style="font-size: 11px; color: #888;">{c_nome}</span><br>
+                        <span style="font-size: 11px; color: #e74c3c;">❌ Faltas: {total_faltas_html}{limite_txt_html}</span>
+                    </td>
+                    <td>{map_str}</td>
+                    <td>{prova_str}</td>
+                    <td>{pai_str}</td>
+                    <td style="font-family: monospace; font-size: 11px;">{formula}</td>
+                    <td style="font-weight: bold; font-size: 14px;">{mf:.2f}</td>
+                    <td><span class="{sit_class}">{sit}</span></td>
+                </tr>"""
+            else:
+                html_boletim_rows += f"""
+                <tr>
+                    <td style="font-weight: 500;">
+                        {d['nome']}<br>
+                        <span style="font-size: 11px; color: #888;">{c_nome}</span><br>
+                        <span style="font-size: 11px; color: #e74c3c;">❌ Faltas: {total_faltas_html}{limite_txt_html}</span>
+                    </td>
+                    <td colspan="5" style="text-align: center; color: #999;">Nenhuma nota lançada</td>
+                    <td><span class="badge entrega">CURSANDO</span></td>
+                </tr>"""
+    else:
+        html_boletim_rows = """<tr><td colspan="7" style="text-align: center; color: #a0aec0;">Nenhum boletim disponível.</td></tr>"""
+
     # Lógica de construção do HTML Premium
     # CSS com design incrível baseado em HSL/RGB do EduTrack AI
     html_content = f"""<!DOCTYPE html>
@@ -514,7 +1134,7 @@ def modulo_relatorios():
             font-weight: 500;
             font-size: 14px;
         }}
-
+ 
         /* Grade de Indicadores (KPIs) */
         .metrics-grid {{
             display: grid;
@@ -550,7 +1170,7 @@ def modulo_relatorios():
             color: #1a202c;
             margin: 0;
         }}
-
+ 
         /* Seções e Tabelas */
         .section-title {{
             font-size: 18px;
@@ -616,7 +1236,7 @@ def modulo_relatorios():
         .nota-badge.reprovado {{
             color: #e74c3c;
         }}
-
+ 
         .footer {{
             margin-top: 40px;
             text-align: center;
@@ -695,7 +1315,7 @@ def modulo_relatorios():
             </div>
             {html_cursos_status}
         </div>
-
+ 
         <!-- Grade de Metricas -->
         <div class="metrics-grid">
             <div class="metric-card primary">
@@ -716,6 +1336,27 @@ def modulo_relatorios():
             </div>
         </div>
 
+        <!-- Boletim Escolar Ponderado -->
+        <div class="section-title">
+            <span>Boletim de Médias Finais Ponderadas</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Disciplina</th>
+                    <th>Média MAP</th>
+                    <th>Nota Prova</th>
+                    <th>Nota PAI</th>
+                    <th>Fórmula / Pesos</th>
+                    <th>Média Final</th>
+                    <th>Situação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {html_boletim_rows}
+            </tbody>
+        </table>
+ 
         <!-- Tabela de Tarefas e Notas -->
         <div class="section-title">
             <span>Histórico de Tarefas, Atividades e Notas</span>
@@ -754,7 +1395,11 @@ def modulo_relatorios():
             prazo = "-"
             if d_val:
                 try:
-                    prazo = datetime.datetime.fromisoformat(str(d_val).split('T')[0]).strftime('%d/%m/%Y')
+                    dt = datetime.datetime.fromisoformat(str(d_val).split('T')[0])
+                    if dt.year <= 1970:
+                        prazo = "-"
+                    else:
+                        prazo = dt.strftime('%d/%m/%Y')
                 except:
                     prazo = str(d_val)
                     
@@ -876,13 +1521,17 @@ def modulo_relatorios():
     # Lógica de download em CSV
     csv_data = ""
     if not df_filtrado_raw.empty:
-        # Formatar a data para CSV
+        # Formatar a data para CSV, ocultando data padrão (1970)
         def format_date_simple(d):
             if not d or pd.isna(d): return ""
             try:
                 if isinstance(d, int):
-                    return datetime.datetime.fromtimestamp(d/1000.0).strftime('%Y-%m-%d')
-                return datetime.datetime.fromisoformat(str(d).split('T')[0]).strftime('%Y-%m-%d')
+                    dt = datetime.datetime.fromtimestamp(d/1000.0)
+                else:
+                    dt = datetime.datetime.fromisoformat(str(d).split('T')[0])
+                if dt.year <= 1970:
+                    return ""
+                return dt.strftime('%Y-%m-%d')
             except:
                 return str(d)
         
@@ -898,7 +1547,7 @@ def modulo_relatorios():
         csv_data = df_export.to_csv(index=False, sep=';', encoding='utf-8-sig')
 
     # Opções de downloads na UI do Streamlit
-    ex_col1, ex_col2 = st.columns(2)
+    ex_col1, ex_col2, ex_col3 = st.columns(3)
     
     with ex_col1:
         st.download_button(
@@ -911,6 +1560,39 @@ def modulo_relatorios():
         )
 
     with ex_col2:
+        try:
+            pdf_bytes = gerar_pdf_bytes(
+                student_full_name=student_full_name,
+                user_email=user_email,
+                dob_str=dob_str,
+                media_geral=media_geral,
+                taxa_conclusao=taxa_conclusao,
+                num_tarefas=num_tarefas,
+                num_disciplinas=num_disciplinas,
+                disciplinas=disciplinas,
+                tarefas=tarefas,
+                professores=professores,
+                todas_faltas=todas_faltas,
+                df_filtrado_raw=df_filtrado_raw,
+                cursos=cursos
+            )
+        except Exception as e:
+            pdf_bytes = None
+            st.error(f"Erro ao renderizar PDF: {e}")
+
+        if pdf_bytes:
+            st.download_button(
+                label="📕 Baixar Relatório Premium (PDF)",
+                data=pdf_bytes,
+                file_name=f"Relatorio_Academico_{student_full_name.replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                help="Baixa o relatório consolidado pronto para impressão em PDF.",
+                use_container_width=True
+            )
+        else:
+            st.button("📕 Baixar Relatório Premium (PDF)", disabled=True, use_container_width=True)
+
+    with ex_col3:
         if csv_data:
             st.download_button(
                 label="📊 Baixar Dados em Planilha (CSV)",

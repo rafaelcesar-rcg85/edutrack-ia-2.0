@@ -34,7 +34,7 @@ query "disciplinas" verb=PATCH {
     int prof_id? {
       description = "Novo ID do professor"
     }
-    int course_id? {
+    int curso_id? {
       description = "Novo ID do curso"
     }
     int total_aulas? {
@@ -43,14 +43,24 @@ query "disciplinas" verb=PATCH {
     int limite_faltas? {
       description = "Novo limite máximo de faltas"
     }
+    int peso_map? {
+      description = "Novo peso da MAP"
+    }
+    int peso_prova? {
+      description = "Novo peso da Prova"
+    }
+    int peso_pai? {
+      description = "Novo peso da Prova PAI"
+    }
   }
 
   stack {
     // Passo 1: Busca a disciplina garantindo que pertence ao usuário
     // A condição combina dois filtros: id correto E user_id correto
     // Isso previne que um usuário edite disciplinas de outro
-    db.get "disciplinas" {
+    db.query "disciplinas" {
       where = ($db.disciplinas.id == $input.id) && ($db.disciplinas.user_id == $auth.id)
+      return = {type: "single"}
     } as $existing_disc
     
     // Passo 2: Verifica se o registro foi encontrado
@@ -64,14 +74,18 @@ query "disciplinas" verb=PATCH {
     // Passo 3: Atualiza o registro com os novos valores
     // Operador ?? (null coalescing): usa o valor enviado; se for null, mantém o atual
     db.edit "disciplinas" {
-      id = $input.id
+      field_name = "id"
+      field_value = $input.id
       data = {
         // Se $input.nome for enviado → usa; senão → mantém $existing_disc.nome
         nome         : $input.nome         ?? $existing_disc.nome
         prof_id      : $input.prof_id      ?? $existing_disc.prof_id
-        course_id    : $input.course_id    ?? $existing_disc.course_id
+        curso_id     : $input.curso_id     ?? $existing_disc.curso_id
         total_aulas  : $input.total_aulas  ?? $existing_disc.total_aulas
         limite_faltas: $input.limite_faltas ?? $existing_disc.limite_faltas
+        peso_map     : $input.peso_map     ?? $existing_disc.peso_map
+        peso_prova   : $input.peso_prova   ?? $existing_disc.peso_prova
+        peso_pai     : $input.peso_pai     ?? $existing_disc.peso_pai
       }
     } as $updated_disc
   }

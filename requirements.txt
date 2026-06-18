@@ -36,3 +36,4 @@ tzdata==2026.1
 urllib3==2.6.3
 watchdog==6.0.0
 plotly==6.7.0
+fpdf2==2.8.7

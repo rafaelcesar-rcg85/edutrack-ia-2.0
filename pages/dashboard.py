@@ -166,6 +166,8 @@ def modulo_dashboard():
                     else:
                         dt = datetime.fromisoformat(str(d_str).split('T')[0]).date()
                         
+                    if dt.year <= 1970:
+                        continue
                     if dt not in task_dict:
                         task_dict[dt] = []
                     task_dict[dt].append(t)

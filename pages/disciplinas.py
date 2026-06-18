@@ -44,6 +44,18 @@ def modulo_disciplinas():
             with col_lf:
                 limite_faltas_d = st.number_input('Limite de Faltas', min_value=0, step=1, value=0)
 
+            st.markdown("⚖️ **Pesos das Avaliações (Devem somar 100%)**")
+            col_w1, col_w2, col_w3 = st.columns(3)
+            with col_w1:
+                peso_map = st.number_input('Peso MAP (%)', min_value=0, max_value=100, value=30, step=5)
+            with col_w2:
+                peso_prova = st.number_input('Peso Prova (%)', min_value=0, max_value=100, value=50, step=5)
+            with col_w3:
+                peso_pai = st.number_input('Peso PAI (%)', min_value=0, max_value=100, value=20, step=5)
+
+            if peso_map + peso_prova + peso_pai != 100:
+                st.warning(f"⚠️ Atenção: Os pesos informados somam {peso_map + peso_prova + peso_pai}%. O ideal é somar 100%.")
+
             submitted = st.form_submit_button('Salvar Disciplina', type='primary', use_container_width=True)
 
         if submitted:
@@ -55,7 +67,10 @@ def modulo_disciplinas():
                     'prof_id': opcoes_p[p_escolhido],
                     'curso_id': opcoes_c[c_escolhido],
                     'total_aulas': total_aulas_d if total_aulas_d > 0 else None,
-                    'limite_faltas': limite_faltas_d if limite_faltas_d > 0 else None
+                    'limite_faltas': limite_faltas_d if limite_faltas_d > 0 else None,
+                    'peso_map': peso_map,
+                    'peso_prova': peso_prova,
+                    'peso_pai': peso_pai
                 }
                 res = api_post('disciplinas', dados_disc)
                 if res.status_code in [200, 201]:
@@ -107,13 +122,32 @@ def modulo_disciplinas():
                             value=int(d_atual.get('limite_faltas') or 0)
                         )
                     
+                    def_peso_map = int(d_atual.get('peso_map') if d_atual.get('peso_map') is not None else 30)
+                    def_peso_prova = int(d_atual.get('peso_prova') if d_atual.get('peso_prova') is not None else 50)
+                    def_peso_pai = int(d_atual.get('peso_pai') if d_atual.get('peso_pai') is not None else 20)
+
+                    st.markdown("⚖️ **Pesos das Avaliações (Devem somar 100%)**")
+                    col_uw1, col_uw2, col_uw3 = st.columns(3)
+                    with col_uw1:
+                        n_peso_map = st.number_input('Peso MAP (%)', min_value=0, max_value=100, value=def_peso_map, step=5, key=f"edit_peso_map_{d_atual['id']}")
+                    with col_uw2:
+                        n_peso_prova = st.number_input('Peso Prova (%)', min_value=0, max_value=100, value=def_peso_prova, step=5, key=f"edit_peso_prova_{d_atual['id']}")
+                    with col_uw3:
+                        n_peso_pai = st.number_input('Peso PAI (%)', min_value=0, max_value=100, value=def_peso_pai, step=5, key=f"edit_peso_pai_{d_atual['id']}")
+
+                    if n_peso_map + n_peso_prova + n_peso_pai != 100:
+                        st.warning(f"⚠️ Atenção: Os pesos informados somam {n_peso_map + n_peso_prova + n_peso_pai}%.")
+
                     if st.form_submit_button('Atualizar Disciplina'):
                         dados_update = {
                             'nome': novo_nome,
                             'prof_id': opcoes_p[novo_prof],
                             'curso_id': opcoes_c[novo_curso],
                             'total_aulas': novo_total_aulas if novo_total_aulas > 0 else None,
-                            'limite_faltas': novo_limite_faltas if novo_limite_faltas > 0 else None
+                            'limite_faltas': novo_limite_faltas if novo_limite_faltas > 0 else None,
+                            'peso_map': n_peso_map,
+                            'peso_prova': n_peso_prova,
+                            'peso_pai': n_peso_pai
                         }
                         if 'user_id' in st.session_state:
                             dados_update['user_id'] = st.session_state.user_id
@@ -144,8 +178,19 @@ def modulo_disciplinas():
         else:
             df_view['nome_curso'] = 'N/A'
         
+        # Garante colunas de peso
+        for col, default_val in [('peso_map', 30), ('peso_prova', 50), ('peso_pai', 20)]:
+            if col not in df_view.columns:
+                df_view[col] = default_val
+            else:
+                df_view[col] = df_view[col].fillna(default_val).astype(int)
+
+        df_view['Pesos (MAP/PRV/PAI)'] = df_view.apply(
+            lambda r: f"{int(r['peso_map'])}% / {int(r['peso_prova'])}% / {int(r['peso_pai'])}%", axis=1
+        )
+
         # Renomear colunas para exibição
-        cols_to_show = ['id', 'nome', 'nome_prof', 'nome_curso', 'total_aulas', 'limite_faltas']
+        cols_to_show = ['id', 'nome', 'nome_prof', 'nome_curso', 'total_aulas', 'limite_faltas', 'Pesos (MAP/PRV/PAI)']
         cols_to_show = [c for c in cols_to_show if c in df_view.columns]
         
         df_display = df_view[cols_to_show].rename(columns={
@@ -154,7 +199,8 @@ def modulo_disciplinas():
             'nome_prof': 'Professor',
             'nome_curso': 'Curso',
             'total_aulas': 'Total Aulas',
-            'limite_faltas': 'Limite Faltas'
+            'limite_faltas': 'Limite Faltas',
+            'Pesos (MAP/PRV/PAI)': 'Pesos (MAP/PRV/PAI)'
         })
         
         st.dataframe(df_display, use_container_width=True, hide_index=True)      

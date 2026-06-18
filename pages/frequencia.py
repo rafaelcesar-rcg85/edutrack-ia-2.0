@@ -215,26 +215,25 @@ def modulo_frequencia():
             submitted = st.form_submit_button("📌 Registrar Falta", type="primary", use_container_width=True)
 
             if submitted:
-                # Converte date para ISO string compatível com Xano timestamp
-                data_iso = datetime.combine(data_falta, datetime.min.time()).isoformat()
+                # Converte date para timestamp em milissegundos (Xano timestamp)
+                data_ts = int(datetime.combine(data_falta, datetime.min.time()).timestamp() * 1000)
+                
                 payload = {
-                    "disc_id": disc_id,
-                    "data_falta": data_iso,
-                    "peso": int(peso),
+                    "disc_id": int(disc_id),
+                    "data_falta": data_ts,
+                    "peso": int(peso)
                 }
-                # Resolve course_id tentando os dois nomes de campo possíveis:
-                # "course_id" (nome correto) ou "curso_id" (nome legado do frontend)
-                course_id = disc.get("curso_id") or disc.get("course_id")
-                if course_id:
-                    payload["course_id"] = int(course_id)
-
-                if justificativa.strip():
+                
+                # Campos opcionais
+                if course_id is not None:
+                    payload["curso_id"] = int(course_id)
+                if justificativa and justificativa.strip():
                     payload["justificativa"] = justificativa.strip()
-
+                    
                 res = api_post("faltas", payload)
                 if res.status_code in [200, 201]:
                     aulas_txt = f"{peso} aula{'s' if peso > 1 else ''}"
-                    st.success(f"✅ Falta registrada para {data_falta.strftime('%d/%m/%Y')} ({aulas_txt})!")
+                    st.success(f"✅ Falta registrada com sucesso para {data_falta.strftime('%d/%m/%Y')} ({aulas_txt})!")
                     st.rerun()
                 else:
                     st.error(f"Erro ao registrar falta: {res.text}")
@@ -289,8 +288,8 @@ def modulo_frequencia():
 
             col_info, col_btn = st.columns([5, 1])
             with col_info:
-                st.markdown(
-                    f"""<div style='background: #ffffff08; border: 1px solid #ffffff15;
+                st.html(
+                    f"""<div style='background: #f8f8fa; border: 1px solid #e2e8f0;
                         border-radius: 8px; padding: 10px 14px; margin-bottom: 6px;'>
                         <span style='font-weight: 600;'>📅 {data_fmt}</span>
                         {curso_badge}
@@ -299,8 +298,7 @@ def modulo_frequencia():
                             <span style='color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;'>Justificativa:</span>
                             <span style='color: #f23030; font-size: 14px; margin-left: 6px;'>{justif}</span>
                         </div>
-                    </div>""",
-                    unsafe_allow_html=True
+                    </div>"""
                 )
             with col_btn:
                 st.markdown("<div style='padding-top: 2px;'>", unsafe_allow_html=True)

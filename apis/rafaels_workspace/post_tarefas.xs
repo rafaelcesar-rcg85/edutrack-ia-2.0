@@ -47,6 +47,10 @@ query "tarefas" verb=POST {
     timestamp data_entrega? {
       description = "Data de entrega para atividades futuras"
     }
+    // Tipo de avaliação — opcional (MAP, PROVA, SUB, PAI, OUTRO)
+    text tipo? {
+      description = "Tipo de avaliação"
+    }
   }
 
   stack {
@@ -61,6 +65,7 @@ query "tarefas" verb=POST {
         status       : $input.status
         nota         : $input.nota         // null se não enviado
         data_entrega : $input.data_entrega  // null se não enviado
+        tipo         : $input.tipo         // null se não enviado
         // "now" registra automaticamente o timestamp atual
         created_at   : "now"
       }

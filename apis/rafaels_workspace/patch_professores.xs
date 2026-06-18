@@ -41,8 +41,9 @@ query "professores" verb=PATCH {
   stack {
     // Busca o professor garantindo que pertence ao usuário
     // A dupla condição (id + user_id) impede editar dados de outro usuário
-    db.get "professores" {
+    db.query "professores" {
       where = ($db.professores.id == $input.id) && ($db.professores.user_id == $auth.id)
+      return = {type: "single"}
     } as $existing_prof
     
     // Validação: se o professor não foi encontrado, interrompe com erro
@@ -54,7 +55,8 @@ query "professores" verb=PATCH {
 
     // Atualiza o registro preservando campos não enviados
     db.edit "professores" {
-      id = $input.id
+      field_name = "id"
+      field_value = $input.id
       data = {
         // ?? mantém o valor atual quando o campo não é enviado pelo cliente
         nome      : $input.nome      ?? $existing_prof.nome

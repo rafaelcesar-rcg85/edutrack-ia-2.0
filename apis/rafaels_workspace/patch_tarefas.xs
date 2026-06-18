@@ -44,14 +44,18 @@ query "tarefas" verb=PATCH {
     timestamp data_entrega? {
       description = "Nova data de entrega"
     }
+    text tipo? {
+      description = "Novo tipo de avaliação"
+    }
   }
 
   stack {
     // Passo 1: Busca a tarefa verificando que pertence ao usuário logado
     // A dupla condição (id + user_id) impede que um usuário edite
     // tarefas de outro usuário — segurança em nível de objeto (BOLA prevention)
-    db.get "tarefas" {
+    db.query "tarefas" {
       where = ($db.tarefas.id == $input.id) && ($db.tarefas.user_id == $auth.id)
+      return = {type: "single"}
     } as $existing_tarefa
     
     // Passo 2: Se não encontrou → lança erro e interrompe
@@ -65,7 +69,8 @@ query "tarefas" verb=PATCH {
     // O operador ?? garante que, se o campo não foi enviado (null),
     // o valor anterior ($existing_tarefa.campo) seja mantido
     db.edit "tarefas" {
-      id = $input.id
+      field_name = "id"
+      field_value = $input.id
       data = {
         nome         : $input.nome         ?? $existing_tarefa.nome
         disc_id      : $input.disc_id      ?? $existing_tarefa.disc_id
@@ -73,6 +78,7 @@ query "tarefas" verb=PATCH {
         status       : $input.status       ?? $existing_tarefa.status
         nota         : $input.nota         ?? $existing_tarefa.nota
         data_entrega : $input.data_entrega ?? $existing_tarefa.data_entrega
+        tipo         : $input.tipo         ?? $existing_tarefa.tipo
       }
     } as $updated_tarefa
   }

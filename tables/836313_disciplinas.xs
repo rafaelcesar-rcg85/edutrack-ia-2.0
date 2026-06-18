@@ -36,7 +36,7 @@ table "disciplinas" {
 
     // Chave estrangeira: ID do curso ao qual a disciplina pertence
     // É opcional (?) pois uma disciplina pode existir sem curso definido
-    int course_id? {
+    int curso_id? {
       table = "curso"
       description = "ID do curso ao qual esta disciplina pertence"
     }
@@ -58,6 +58,19 @@ table "disciplinas" {
       description = "Número máximo de faltas permitidas na disciplina"
     }
 
+    // Pesos para cálculo da média
+    int peso_map?=30 {
+      description = "Peso da MAP (0-100)"
+    }
+
+    int peso_prova?=50 {
+      description = "Peso da Prova (0-100)"
+    }
+
+    int peso_pai?=20 {
+      description = "Peso da Prova PAI (0-100)"
+    }
+
     // Data de criação automática — preenchida pelo Xano no momento do INSERT
     timestamp created_at?=now {
       description = "Data de criação do registro"
@@ -72,7 +85,7 @@ table "disciplinas" {
       // Índice composto para filtros por usuário e curso simultaneamente
       // Ex: "disciplinas do aluno X no curso Y"
       type: "btree"
-      field: [{name: "user_id"}, {name: "course_id"}]
+      field: [{name: "user_id"}, {name: "curso_id"}]
     }
   ]
 }
