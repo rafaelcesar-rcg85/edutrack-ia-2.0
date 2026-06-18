@@ -13,7 +13,6 @@
 // Todos os campos do input são inseridos diretamente no banco
 // junto com o user_id do usuário logado ($auth.id).
 // =============================================================
-
 // Cria uma nova tarefa vinculada a uma disciplina e um curso
 query "tarefas" verb=POST {
   description = "Cria uma nova tarefa vinculada a uma disciplina e um curso"
