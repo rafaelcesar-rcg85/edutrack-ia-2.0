@@ -28,7 +28,7 @@ query "faltas" verb=POST {
       description = "ID da disciplina onde a falta ocorreu"
     }
     // ID do curso — opcional, facilita filtros futuros
-    int course_id? {
+    int curso_id? {
       description = "ID do curso ao qual a disciplina pertence"
     }
     // Data da aula em que o aluno faltou — obrigatório
@@ -50,13 +50,12 @@ query "faltas" verb=POST {
     // db.add: insere o registro de falta na tabela "faltas"
     db.add "faltas" {
       data = {
-        // O user_id é obtido do token JWT — garante isolamento entre usuários
         user_id      : $auth.id
         disc_id      : $input.disc_id
-        course_id    : $input.course_id    // null se não enviado
+        curso_id     : $input.curso_id
         data_falta   : $input.data_falta
-        justificativa: $input.justificativa // null se não enviado
-        peso         : $input.peso ?? 1    // padrão 1 se não enviado
+        justificativa: $input.justificativa
+        peso         : $input.peso ?? 1
         created_at   : "now"
       }
     } as $new_falta

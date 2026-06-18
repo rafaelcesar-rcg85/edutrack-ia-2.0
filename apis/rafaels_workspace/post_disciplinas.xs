@@ -42,6 +42,16 @@ query "disciplinas" verb=POST {
     int limite_faltas? {
       description = "Número máximo de faltas permitidas"
     }
+    // Pesos para média — opcionais
+    int peso_map? {
+      description = "Peso da MAP (0-100)"
+    }
+    int peso_prova? {
+      description = "Peso da Prova (0-100)"
+    }
+    int peso_pai? {
+      description = "Peso da Prova PAI (0-100)"
+    }
   }
 
   stack {
@@ -55,6 +65,9 @@ query "disciplinas" verb=POST {
         nome         : $input.nome
         total_aulas  : $input.total_aulas   // null se não enviado
         limite_faltas: $input.limite_faltas  // null se não enviado
+        peso_map     : $input.peso_map ?? 30
+        peso_prova   : $input.peso_prova ?? 50
+        peso_pai     : $input.peso_pai ?? 20
         // "now": expressão Xano que registra o timestamp atual
         created_at   : "now"
       }

@@ -59,6 +59,11 @@ table "tarefas" {
       description = "Data de entrega para atividades futuras"
     }
 
+    // Tipo de avaliação (MAP, PROVA, SUB, PAI, OUTRO)
+    text tipo? {
+      description = "Tipo de avaliação para cálculo de médias"
+    }
+
     // Chave estrangeira: garante que cada tarefa pertence a um único aluno
     int user_id {
       table = "user"

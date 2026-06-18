@@ -26,7 +26,7 @@ table "faltas" {
     }
 
     // Chave estrangeira: curso (opcional) — facilita filtros por curso
-    int course_id? {
+    int curso_id? {
       table = "curso"
       description = "ID do curso ao qual a disciplina pertence"
     }

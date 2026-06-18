@@ -40,9 +40,9 @@ query "curso" verb=POST {
         // "now" é uma expressão do Xano que gera o timestamp atual automaticamente
         created_at: "now"
       }
-    } as $new_course  // Salva o registro criado na variável $new_course
+    } as $new_curso  // Salva o registro criado na variável $new_course
   }
 
   // Retorna o objeto completo do curso recém-criado (incluindo o ID gerado)
-  response = $new_course
+  response = $new_curso
 }
