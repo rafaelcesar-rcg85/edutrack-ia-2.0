@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
+from streamlit_echarts import st_echarts
 from utils.api import api_get_all_events, api_get_users
 
 st.title("Atividade dos Usuários")
@@ -61,8 +62,48 @@ st.subheader("📈 Crescimento de Usuários (Cadastros por Mês)")
 if not df_signup.empty:
     df_signup['mes'] = df_signup['created_at'].dt.to_period('M').astype(str)
     growth = df_signup.groupby('mes').size().reset_index(name='Novos Usuários')
-    growth = growth.rename(columns={'mes': 'Mês'}).set_index('Mês')
-    st.line_chart(growth)
+    growth = growth.rename(columns={'mes': 'Mês'})
+    growth = growth.sort_values('Mês')
+    
+    x_months = growth['Mês'].tolist()
+    y_users = growth['Novos Usuários'].tolist()
+    
+    growth_options = {
+        "tooltip": {
+            "trigger": "axis",
+            "axisPointer": {"type": "cross"}
+        },
+        "grid": {
+            "left": "3%",
+            "right": "4%",
+            "top": "8%",
+            "bottom": "15%",
+            "containLabel": True
+        },
+        "xAxis": {
+            "type": "category",
+            "boundaryGap": False,
+            "data": x_months
+        },
+        "yAxis": {
+            "type": "value",
+            "minInterval": 1
+        },
+        "series": [
+            {
+                "name": "Novos Usuários",
+                "type": "line",
+                "smooth": True,
+                "symbolSize": 6,
+                "color": "#6c5ce7",
+                "areaStyle": {
+                    "opacity": 0.2
+                },
+                "data": y_users
+            }
+        ]
+    }
+    st_echarts(options=growth_options, height="320px", theme="streamlit", key="growth_users_line")
 else:
     st.info("Sem dados de cadastro encontrados.")
 
@@ -101,8 +142,50 @@ if not df_login.empty:
     df_login['hora'] = df_login['created_at'].dt.hour
     pico = df_login.groupby('hora').size().reset_index(name='Logins')
     pico['Hora'] = pico['hora'].apply(lambda h: f"{h:02d}:00")
-    pico = pico[['Hora', 'Logins']].set_index('Hora')
-    st.bar_chart(pico)
+    pico = pico.sort_values('hora')
+    
+    x_hours = pico['Hora'].tolist()
+    y_logins = pico['Logins'].tolist()
+    
+    pico_options = {
+        "tooltip": {
+            "trigger": "axis",
+            "axisPointer": {"type": "shadow"}
+        },
+        "grid": {
+            "left": "3%",
+            "right": "4%",
+            "top": "8%",
+            "bottom": "15%",
+            "containLabel": True
+        },
+        "xAxis": {
+            "type": "category",
+            "data": x_hours
+        },
+        "yAxis": {
+            "type": "value",
+            "minInterval": 1
+        },
+        "series": [
+            {
+                "name": "Logins",
+                "type": "bar",
+                "color": "#4a3b8c",
+                "barWidth": "40%",
+                "itemStyle": {
+                    "borderRadius": [4, 4, 0, 0]
+                },
+                "label": {
+                    "show": True,
+                    "position": "top",
+                    "formatter": "{c}"
+                },
+                "data": y_logins
+            }
+        ]
+    }
+    st_echarts(options=pico_options, height="320px", theme="streamlit", key="peak_hours_bar")
 else:
     st.info("Sem dados de login para calcular picos.")
 

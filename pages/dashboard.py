@@ -6,6 +6,7 @@ from datetime import datetime, date
 import calendar
 from utils.api import api_get
 from utils.theme import apply_theme
+from streamlit_echarts import st_echarts
 
 def get_custom_calendar(year, month, task_dict):
     cal = calendar.monthcalendar(year, month)
@@ -152,6 +153,12 @@ def modulo_dashboard():
     if cursos:
         for c in cursos:
             map_cursos[c['id']] = c.get('curso', c.get('name', 'Sem Nome'))
+            
+    # Mapeamento rápido de disciplinas
+    map_discs = {}
+    if discs:
+        for d in discs:
+            map_discs[d['id']] = d.get('nome', 'Sem Disciplina')
     
     # Processar datas
     task_dict = {}
@@ -260,66 +267,287 @@ def modulo_dashboard():
             else:
                 df_plot['nome_curso'] = 'N/A'
             
-            # Filtrar para exibir apenas as tarefas com status "Concluída" no gráfico
-            if 'status_t' in df_plot.columns:
-                df_plot = df_plot[df_plot['status_t'] == 'Concluída']
-            elif 'status' in df_plot.columns:
-                df_plot = df_plot[df_plot['status'] == 'Concluída']
+            # O filtro de status foi movido para o selectbox de filtros do gráfico abaixo
                 
             if not df_plot.empty:
                 # Obter lista de cursos disponíveis
                 cursos_disponiveis = [c for c in df_plot['nome_curso'].unique() if pd.notna(c) and c != 'N/A']
                 opcoes_cursos = ["Todos os Cursos"] + sorted(cursos_disponiveis)
                 
-                # Filtro principal de curso
-                filtro_curso = st.selectbox("Selecione o Curso para visualizar as Disciplinas", opcoes_cursos)
+                # Filtros de Curso, Disciplina e Status das Tarefas lado a lado
+                col_filtros_1, col_filtros_2, col_filtros_3 = st.columns(3)
+                with col_filtros_1:
+                    filtro_curso = st.selectbox("Selecione o Curso", opcoes_cursos)
                 
                 # Aplica o filtro de curso
                 if filtro_curso != "Todos os Cursos":
                     df_plot_filtro = df_plot[df_plot['nome_curso'] == filtro_curso]
                 else:
                     df_plot_filtro = df_plot
+
+                # Obter lista de disciplinas disponíveis com base no curso selecionado
+                disciplinas_disponiveis = ["Todas as Disciplinas"] + sorted(list(df_plot_filtro['nome_d'].unique()))
+                with col_filtros_2:
+                    filtro_disciplina = st.selectbox("Selecione a Disciplina", disciplinas_disponiveis)
+                
+                # Aplica o filtro de disciplina
+                if filtro_disciplina != "Todas as Disciplinas":
+                    df_plot_filtro = df_plot_filtro[df_plot_filtro['nome_d'] == filtro_disciplina]
+
+                # Filtro de Status das Tarefas
+                with col_filtros_3:
+                    filtro_status = st.selectbox("Status das Tarefas", ["Todas", "Concluídas", "Para Entregar"])
+                
+                # Aplica o filtro de status
+                col_status = 'status_t' if 'status_t' in df_plot_filtro.columns else 'status'
+                if col_status in df_plot_filtro.columns:
+                    if filtro_status == "Concluídas":
+                        df_plot_filtro = df_plot_filtro[df_plot_filtro[col_status] == 'Concluída']
+                    elif filtro_status == "Para Entregar":
+                        df_plot_filtro = df_plot_filtro[df_plot_filtro[col_status] == 'Para Entregar']
                 
                 if not df_plot_filtro.empty:
                     # Opções de visualização para o usuário (Tipo e Ordem)
                     col_chart_type, col_sort = st.columns(2)
                     with col_chart_type:
-                        tipo_grafico = st.selectbox("Escolha o tipo de gráfico", ["Linha", "Barra", "Dispersão"])
+                        tipo_grafico = st.selectbox("Escolha o tipo de gráfico", ["Barra", "Linha", "Área", "Barra Empilhada", "Dispersão"])
                     with col_sort:
                         ordem_grafico = st.selectbox("Ordem de Exibição", ["Cronológica", "Alfabética"])
                     
                     # Ordenar o dataframe com base na escolha
                     if ordem_grafico == "Cronológica":
-                        df_plot_filtro = df_plot_filtro.sort_values(by='id_t')
+                        df_ordered = df_plot_filtro.sort_values(by='id_t')
                     else:
-                        df_plot_filtro = df_plot_filtro.sort_values(by='nome_t')
+                        df_ordered = df_plot_filtro.sort_values(by='nome_t')
                     
-                    if tipo_grafico == "Linha":
-                        fig = px.line(df_plot_filtro, x='nome_t', y='nota', color='nome_d', markers=True)
-                    elif tipo_grafico == "Barra":
-                        fig = px.bar(df_plot_filtro, x='nome_t', y='nota', color='nome_d', barmode='group')
-                    elif tipo_grafico == "Dispersão":
-                        fig = px.scatter(df_plot_filtro, x='nome_t', y='nota', color='nome_d', size='nota')
+                    task_names = list(df_ordered['nome_t'].unique())
+                    disciplinas_unicas = list(df_ordered['nome_d'].unique())
                     
-                    fig.update_layout(
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        xaxis_title="",
-                        yaxis_title="Nota",
-                        legend_title="Disciplina",
-                        margin=dict(l=0, r=0, t=20, b=0),
-                        yaxis=dict(gridcolor='#eee', range=[0, 10])
-                    )
-                    if tipo_grafico == "Linha":
-                        fig.update_traces(line=dict(width=3), marker=dict(size=8))
+                    series_list = []
+                    for disc in disciplinas_unicas:
+                        df_disc = df_ordered[df_ordered['nome_d'] == disc]
+                        task_grades = dict(zip(df_disc['nome_t'], df_disc['nota']))
+                        
+                        data_points = []
+                        for t_name in task_names:
+                            val = task_grades.get(t_name, None)
+                            if pd.isna(val):
+                                data_points.append(None)
+                            else:
+                                data_points.append(float(val))
+                                
+                        # Determinar o tipo de série no ECharts
+                        if tipo_grafico in ["Linha", "Área"]:
+                            type_val = "line"
+                        elif tipo_grafico in ["Barra", "Barra Empilhada"]:
+                            type_val = "bar"
+                        else:
+                            type_val = "scatter"
+                            
+                        series_item = {
+                            "name": disc,
+                            "type": type_val,
+                            "data": data_points
+                        }
+                        
+                        # Customizações específicas
+                        if tipo_grafico == "Área":
+                            series_item["areaStyle"] = {"opacity": 0.3}
+                            series_item["smooth"] = True
+                        elif tipo_grafico == "Linha":
+                            series_item["smooth"] = True
+                            series_item["symbolSize"] = 8
+                            series_item["lineStyle"] = {"width": 3}
+                        elif tipo_grafico == "Barra Empilhada":
+                            series_item["stack"] = "total"
+                        elif tipo_grafico == "Dispersão":
+                            series_item["symbolSize"] = 14
+                            
+                        series_list.append(series_item)
+                        
+                    # Configuração de opções do ECharts
+                    options = {
+                        "tooltip": {
+                            "trigger": "axis" if tipo_grafico != "Dispersão" else "item",
+                            "axisPointer": {
+                                "type": "shadow" if tipo_grafico in ["Barra", "Barra Empilhada"] else "cross"
+                            }
+                        },
+                        "legend": {
+                            "data": disciplinas_unicas,
+                            "top": "bottom"
+                        },
+                        "grid": {
+                            "left": "3%",
+                            "right": "4%",
+                            "top": "3%",
+                            "bottom": "15%",
+                            "containLabel": True
+                        },
+                        "xAxis": {
+                            "type": "category",
+                            "data": task_names,
+                            "axisLabel": {
+                                "interval": 0,
+                                "rotate": 30 if len(task_names) > 5 else 0
+                            }
+                        },
+                        "yAxis": {
+                            "type": "value",
+                            "min": 0,
+                            "max": 10,
+                            "splitLine": {
+                                "lineStyle": {
+                                    "type": "dashed",
+                                    "color": "#eee"
+                                }
+                            }
+                        },
+                        "series": series_list
+                    }
                     
-                    st.plotly_chart(fig, use_container_width=True)
+                    st_echarts(options=options, height="400px", theme="streamlit", key="evolucao_notas_echarts")
                 else:
-                    st.info(f"Não há tarefas concluídas para o curso selecionado.")
+                    st.info(f"Não há tarefas para os filtros selecionados.")
             else:
-                st.info("Cadastre notas nas atividades concluídas para visualizar o gráfico.")
+                st.info("Cadastre dados nas atividades para visualizar o gráfico.")
+        # Nova seção de estatísticas acadêmicas (Status e Crescimento)
+        st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
+        st.subheader("Progresso e Registro de Atividades")
+        
+        if tarefas:
+            # --- 1. Gráfico de Status das Tarefas (Pizza/Rosca) ---
+            st.markdown("<h5 style='color: #4a3b8c; margin-top: 20px; text-align: center;'>Distribuição de Status de Tarefas</h5>", unsafe_allow_html=True)
+            concluidas_count = len([t for t in tarefas if t.get('status') == 'Concluída'])
+            pendentes_count = len([t for t in tarefas if t.get('status') == 'Para Entregar'])
+            
+            # Só desenhar se houver tarefas cadastradas
+            if concluidas_count + pendentes_count > 0:
+                pie_options = {
+                    "tooltip": {
+                        "trigger": "item",
+                        "formatter": "{b}: {c} ({d}%)"
+                    },
+                    "legend": {
+                        "orient": "horizontal",
+                        "bottom": "bottom"
+                    },
+                    "series": [
+                        {
+                            "name": "Status",
+                            "type": "pie",
+                            "radius": ["50%", "70%"],
+                            "avoidLabelOverlap": False,
+                            "itemStyle": {
+                                "borderRadius": 8,
+                                "borderColor": "#fff",
+                                "borderWidth": 2
+                            },
+                            "label": {
+                                "show": True,
+                                "position": "outside",
+                                "formatter": "{b}: {c} ({d}%)"
+                            },
+                            "emphasis": {
+                                "label": {
+                                    "show": True,
+                                    "fontSize": "16",
+                                    "fontWeight": "bold"
+                                }
+                            },
+                            "color": ["#27ae60", "#e67e22"], # Verde para Concluída, Laranja para Pendente
+                            "data": [
+                                {"value": concluidas_count, "name": "Concluídas"},
+                                {"value": pendentes_count, "name": "Para Entregar"}
+                            ]
+                        }
+                    ]
+                }
+                st_echarts(options=pie_options, height="350px", theme="streamlit", key="status_tarefas_pie")
+            else:
+                st.caption("Nenhuma tarefa para exibir.")
+                
+            st.markdown("<br><hr style='margin: 30px 0; border: 0; border-top: 1px dashed #eee;'><br>", unsafe_allow_html=True)
+                
+            # --- 2. Gráfico de Crescimento de Atividades Realizadas (Área Acumulativa) ---
+            st.markdown("<h5 style='color: #4a3b8c; margin-top: 10px; text-align: center;'>Crescimento de Atividades Concluídas</h5>", unsafe_allow_html=True)
+            
+            # Processar dados cronologicamente
+            concluidas_tasks = []
+            for t in tarefas:
+                if t.get('status') == 'Concluída' and t.get('data_entrega'):
+                    d_str = t.get('data_entrega')
+                    try:
+                        if isinstance(d_str, int):
+                            dt = datetime.fromtimestamp(d_str/1000.0).date()
+                        else:
+                            dt = datetime.fromisoformat(str(d_str).split('T')[0]).date()
+                        if dt.year > 1970:
+                            concluidas_tasks.append(dt)
+                    except:
+                        pass
+            
+            if concluidas_tasks:
+                # Ordenar datas
+                concluidas_tasks.sort()
+                
+                # Contar tarefas concluidas por dia
+                date_counts = {}
+                for d in concluidas_tasks:
+                    date_counts[d] = date_counts.get(d, 0) + 1
+                    
+                sorted_dates = sorted(date_counts.keys())
+                
+                # Calcular acúmulo (cumsum)
+                cumulative_sum = 0
+                cumulative_data = []
+                x_dates = []
+                
+                for d in sorted_dates:
+                    cumulative_sum += date_counts[d]
+                    cumulative_data.append(cumulative_sum)
+                    x_dates.append(d.strftime('%d/%m/%Y'))
+                    
+                growth_options = {
+                    "tooltip": {
+                        "trigger": "axis",
+                        "axisPointer": {"type": "cross"}
+                    },
+                    "grid": {
+                        "left": "3%",
+                        "right": "4%",
+                        "top": "8%",
+                        "bottom": "15%",
+                        "containLabel": True
+                    },
+                    "xAxis": {
+                        "type": "category",
+                        "boundaryGap": False,
+                        "data": x_dates
+                    },
+                    "yAxis": {
+                        "type": "value",
+                        "minInterval": 1
+                    },
+                    "series": [
+                        {
+                            "name": "Concluídas (Total)",
+                            "type": "line",
+                            "smooth": True,
+                            "symbolSize": 6,
+                            "color": "#6c5ce7", # Roxo para combinar
+                            "areaStyle": {
+                                "opacity": 0.2
+                            },
+                            "data": cumulative_data
+                        }
+                    ]
+                }
+                st_echarts(options=growth_options, height="350px", theme="streamlit", key="growth_tarefas_line")
+            else:
+                st.caption("Nenhuma tarefa concluída para exibir o crescimento.")
         else:
-            st.info("Cadastre dados para visualizar seu desempenho gráfico.")
+            st.info("Cadastre tarefas para visualizar as estatísticas de progresso.")
 
     with col_side:
         # Card do Perfil do Usuário
@@ -451,14 +679,44 @@ def modulo_dashboard():
         # Upcoming Events
         st.subheader("Próximas Tarefas")
         if upcoming_tasks:
+            today = date.today()
             for task in upcoming_tasks[:4]: # Mostrar as 4 próximas
-                c_name = map_cursos.get(task.get('curso_id'), "S/ Curso")
-                st.markdown(f"""
-                <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #6c5ce7; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <p style="margin: 0; font-weight: bold; color: #333; font-size: 0.95em;">{task.get('nome')}</p>
-                    <p style="margin: 0; color: #888; font-size: 0.8em; margin-top: 5px;">📅 {task['parsed_date'].strftime('%d/%m/%Y')} | 🎓 {c_name}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                curso_id = task.get('curso_id') or task.get('course_id')
+                c_name = map_cursos.get(curso_id, "S/ Curso")
+                d_name = map_discs.get(task.get('disc_id'), "Sem Disciplina")
+                
+                due_date = task['parsed_date']
+                days_left = (due_date - today).days
+                
+                # Determinar estilo e sinal de alerta
+                if days_left < 0:
+                    # Atrasada e não concluída (status é 'Para Entregar' por padrão aqui)
+                    border_color = "#e74c3c"  # Vermelho
+                    bg_color = "#fff5f5"      # Fundo vermelho bem claro
+                    alert_badge = f'<span style="background-color: #ffe3e3; color: #e74c3c; padding: 3px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">🚨 Atrasada ({abs(days_left)}d)</span>'
+                elif 0 <= days_left <= 3:
+                    # Prazo próximo (até 3 dias)
+                    border_color = "#e67e22"  # Laranja
+                    bg_color = "#fffaf0"      # Fundo laranja bem claro
+                    if days_left == 0:
+                        days_text = "hoje"
+                    elif days_left == 1:
+                        days_text = "amanhã"
+                    else:
+                        days_text = f"em {days_left} dias"
+                    alert_badge = f'<span style="background-color: #ffebd6; color: #e67e22; padding: 3px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">⚠️ Entrega {days_text}</span>'
+                else:
+                    # No prazo normal
+                    border_color = "#6c5ce7"  # Roxo padrão
+                    bg_color = "white"
+                    alert_badge = ""
+                
+                t_nome = task.get('nome', 'Sem Nome')
+                f_date = due_date.strftime('%d/%m/%Y')
+                
+                # Montar o HTML em uma única linha para evitar quebras que confundem o renderizador de Markdown do Streamlit
+                html_code = f"<div style='background: {bg_color}; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid {border_color}; box-shadow: 0 2px 4px rgba(0,0,0,0.05);'><div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;'><span style='font-weight: bold; color: #333; font-size: 0.95em;'>{t_nome}</span>{alert_badge}</div><p style='margin: 0; color: #666; font-size: 0.8em;'>📅 {f_date} &nbsp;|&nbsp; 📖 {d_name} &nbsp;|&nbsp; 🎓 {c_name}</p></div>"
+                st.markdown(html_code, unsafe_allow_html=True)
         else:
             st.markdown("<p style='color: #888; font-size: 0.9em;'>Nenhuma tarefa próxima pendente.</p>", unsafe_allow_html=True)
 

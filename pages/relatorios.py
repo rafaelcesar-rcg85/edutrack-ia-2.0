@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+from streamlit_echarts import st_echarts
 import datetime
 import requests
 from utils.api import api_get, BASE_URL, USER_PROFILES_URL
@@ -279,7 +279,127 @@ def gerar_pdf_bytes(student_full_name, user_email, dob_str, media_geral, taxa_co
         pdf.cell(180, 8, txt("Nenhum boletim disponível."), border=1, align="C")
         pdf.ln()
     pdf.ln(5)
+
+    # 4.5 GRÁFICOS DE ACOMPANHAMENTO (PDF)
+    if pdf.get_y() > 210:
+        pdf.add_page()
+        
+    pdf.set_text_color(50, 50, 50)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 12)
+    pdf.cell(0, 8, txt("Gráficos de Acompanhamento"), ln=True)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(5)
     
+    y_charts = pdf.get_y()
+    
+    # Calcular contagens de status
+    num_concluidas = len([t for t in tarefas if t.get('status') == 'Concluída']) if tarefas else 0
+    num_pendentes = len([t for t in tarefas if t.get('status') == 'Para Entregar']) if tarefas else 0
+    
+    # Container para o Gráfico de Barras: Média Final por Disciplina (x: 15 a 100)
+    pdf.set_draw_color(220, 220, 220)
+    pdf.set_fill_color(255, 255, 255)
+    pdf.rect(15, y_charts, 85, 45, 'D')
+    
+    pdf.set_xy(15, y_charts + 2)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 8)
+    pdf.set_text_color(108, 92, 231)
+    pdf.cell(85, 4, txt("Média Final por Disciplina"), align="C", ln=True)
+    
+    # Coletar médias para desenhar
+    medias_pdf_disc = []
+    if disciplinas and tarefas:
+        df_t_pdf = pd.DataFrame(tarefas)
+        for d in disciplinas:
+            mf, _ = calcular_media_disciplina(d['id'], df_t_pdf, d)
+            if mf is not None:
+                medias_pdf_disc.append((d['nome'], mf))
+                
+    if medias_pdf_disc:
+        y_axis_base = y_charts + 38
+        max_bar_height = 28.0
+        num_bars = len(medias_pdf_disc)
+        bar_width = min(12.0, 50.0 / max(1, num_bars))
+        spacing = 65.0 / max(1, num_bars)
+        
+        pdf.set_draw_color(180, 180, 180)
+        pdf.line(20, y_axis_base, 95, y_axis_base) # Eixo X
+        
+        for idx, (d_nome, grade) in enumerate(medias_pdf_disc[:6]): # Limitar a 6
+            x_bar = 22 + idx * spacing
+            h_bar = (grade / 10.0) * max_bar_height
+            
+            # Desenhar barra
+            pdf.set_fill_color(108, 92, 231)
+            pdf.rect(x_bar, y_axis_base - h_bar, bar_width, h_bar, 'F')
+            
+            # Texto da nota no topo
+            pdf.set_xy(x_bar - 2, y_axis_base - h_bar - 3.5)
+            pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 6)
+            pdf.set_text_color(50, 50, 50)
+            pdf.cell(bar_width + 4, 3, f"{grade:.1f}", align="C")
+            
+            # Texto do nome abaixo
+            pdf.set_xy(x_bar - 4, y_axis_base + 1)
+            pdf.set_font("Arial" if unicode_mode else "helvetica", "", 5)
+            d_short = (d_nome[:8] + '..') if len(d_nome) > 9 else d_nome
+            pdf.cell(bar_width + 8, 3, txt(d_short), align="C")
+    else:
+        pdf.set_xy(15, y_charts + 20)
+        pdf.set_font("Arial" if unicode_mode else "helvetica", "", 8)
+        pdf.set_text_color(150, 150, 150)
+        pdf.cell(85, 5, txt("Sem médias disponíveis"), align="C")
+        
+    # Container para Distribuição de Status de Tarefas (x: 105 a 195)
+    pdf.set_draw_color(220, 220, 220)
+    pdf.set_fill_color(255, 255, 255)
+    pdf.rect(105, y_charts, 90, 45, 'D')
+    
+    pdf.set_xy(105, y_charts + 2)
+    pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 8)
+    pdf.set_text_color(39, 174, 96)
+    pdf.cell(90, 4, txt("Distribuição de Status de Tarefas"), align="C", ln=True)
+    
+    # Desenhar barra de progresso horizontal
+    if num_tarefas > 0:
+        pct_concluidas = (num_concluidas / num_tarefas) * 100
+        
+        # Barra base (Para Entregar / Laranja)
+        pdf.set_fill_color(230, 126, 34)
+        pdf.rect(115, y_charts + 15, 70, 8, 'F')
+        
+        # Barra sobreposta (Concluída / Verde)
+        if pct_concluidas > 0:
+            w_green = 70.0 * (pct_concluidas / 100.0)
+            pdf.set_fill_color(39, 174, 96)
+            pdf.rect(115, y_charts + 15, w_green, 8, 'F')
+            
+        # Legenda e porcentagem
+        pdf.set_xy(115, y_charts + 26)
+        pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 7)
+        pdf.set_text_color(39, 174, 96)
+        pdf.cell(35, 4, txt(f"Concluídas: {num_concluidas} ({pct_concluidas:.1f}%)"))
+        
+        pdf.set_xy(150, y_charts + 26)
+        pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 7)
+        pdf.set_text_color(230, 126, 34)
+        pct_pend = 100.0 - pct_concluidas
+        pdf.cell(35, 4, txt(f"Para Entregar: {num_pendentes} ({pct_pend:.1f}%)"), align="R")
+        
+        # Texto Informativo
+        pdf.set_xy(115, y_charts + 34)
+        pdf.set_font("Arial" if unicode_mode else "helvetica", "", 7)
+        pdf.set_text_color(100, 100, 100)
+        pdf.cell(70, 4, txt(f"Total de {num_tarefas} atividades registradas no curso."), align="C")
+    else:
+        pdf.set_xy(105, y_charts + 20)
+        pdf.set_font("Arial" if unicode_mode else "helvetica", "", 8)
+        pdf.set_text_color(150, 150, 150)
+        pdf.cell(90, 5, txt("Sem atividades registradas"), align="C")
+        
+    pdf.set_xy(15, y_charts + 50)
+    pdf.ln(5)
+
     # 5. TAREFAS HISTORICO TABLE
     pdf.set_font("Arial" if unicode_mode else "helvetica", "B", 12)
     pdf.cell(0, 8, txt("Histórico de Tarefas, Atividades e Notas"), ln=True)
@@ -539,76 +659,224 @@ def modulo_relatorios():
 
     # 4. GRÁFICOS INTERATIVOS
     st.subheader('📊 Gráficos de Acompanhamento')
-    g1, g2 = st.columns([6, 4], gap="medium")
-    
-    with g1:
-        # Gráfico de Desempenho por Disciplina
-        if tarefas and disciplinas:
-            df_t = pd.DataFrame(tarefas)
+    # Gráfico de Desempenho por Disciplina (Linha 1)
+    if tarefas and disciplinas:
+        df_t = pd.DataFrame(tarefas)
+        
+        # Calcular média final ponderada por disciplina
+        medias_disciplinas = []
+        for d in disciplinas:
+            mf, _ = calcular_media_disciplina(d['id'], df_t, d)
+            if mf is not None:
+                medias_disciplinas.append({
+                    'Disciplina': d['nome'],
+                    'Média de Notas': round(mf, 2)
+                })
+        df_media_disc = pd.DataFrame(medias_disciplinas)
+        
+        if not df_media_disc.empty:
+            disciplinas_list = df_media_disc['Disciplina'].tolist()
+            medias_list = df_media_disc['Média de Notas'].tolist()
             
-            # Calcular média final ponderada por disciplina
-            medias_disciplinas = []
-            for d in disciplinas:
-                mf, _ = calcular_media_disciplina(d['id'], df_t, d)
-                if mf is not None:
-                    medias_disciplinas.append({
-                        'Disciplina': d['nome'],
-                        'Média de Notas': round(mf, 2)
-                    })
-            df_media_disc = pd.DataFrame(medias_disciplinas)
-            
-            if not df_media_disc.empty:
-                fig_bar = px.bar(
-                    df_media_disc, 
-                    x='Disciplina', 
-                    y='Média de Notas',
-                    color='Média de Notas',
-                    color_continuous_scale=px.colors.sequential.Purples[2:], # Evitar o tom mais claro
-                    title='Média Final Ponderada por Disciplina'
-                )
-                
-                # Adicionando um contorno (borda) nas colunas para garantir que mesmo cores claras fiquem visíveis
-                fig_bar.update_traces(marker_line_color='#4a3b8c', marker_line_width=1.5)
-                
-                fig_bar.update_layout(
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    xaxis_title="",
-                    yaxis_title="Nota Média",
-                    yaxis=dict(gridcolor='#eee', range=[0, 10]),
-                    margin=dict(l=0, r=0, t=35, b=0),
-                    coloraxis_showscale=False
-                )
-                st.plotly_chart(fig_bar, use_container_width=True)
-            else:
-                st.info("Registre atividades concluídas com notas para gerar o gráfico de desempenho por disciplina.")
+            bar_options = {
+                "title": {
+                    "text": "Média Final Ponderada por Disciplina",
+                    "left": "center",
+                    "textStyle": {"fontSize": 14, "color": "#4a3b8c"}
+                },
+                "tooltip": {
+                    "trigger": "axis",
+                    "axisPointer": {"type": "shadow"}
+                },
+                "grid": {
+                    "left": "3%",
+                    "right": "4%",
+                    "top": "15%",
+                    "bottom": "10%",
+                    "containLabel": True
+                },
+                "xAxis": {
+                    "type": "category",
+                    "data": disciplinas_list,
+                    "axisLabel": {
+                        "interval": 0,
+                        "rotate": 15 if len(disciplinas_list) > 4 else 0
+                    }
+                },
+                "yAxis": {
+                    "type": "value",
+                    "min": 0,
+                    "max": 10,
+                    "splitLine": {
+                        "lineStyle": {
+                            "type": "dashed",
+                            "color": "#eee"
+                        }
+                    }
+                },
+                "series": [
+                    {
+                        "name": "Média",
+                        "type": "bar",
+                        "color": "#6c5ce7",
+                        "barWidth": "40%",
+                        "itemStyle": {
+                            "borderRadius": [4, 4, 0, 0]
+                        },
+                        "label": {
+                            "show": True,
+                            "position": "top",
+                            "formatter": "{c}"
+                        },
+                        "data": medias_list
+                    }
+                ]
+            }
+            st_echarts(options=bar_options, height="350px", theme="streamlit", key="relatorio_media_disciplina_bar")
         else:
-            st.info("Informações insuficientes para gerar o gráfico de barras.")
+            st.info("Registre atividades concluídas com notas para gerar o gráfico de desempenho por disciplina.")
+    else:
+        st.info("Informações insuficientes para gerar o gráfico de barras.")
 
-    with g2:
-        # Distribuição de Tarefas
-        if tarefas:
-            df_t = pd.DataFrame(tarefas)
-            df_status = df_t['status'].value_counts().reset_index()
-            df_status.columns = ['Status', 'Quantidade']
-            
-            fig_pie = px.pie(
-                df_status, 
-                values='Quantidade', 
-                names='Status',
-                color='Status',
-                color_discrete_map={'Concluída': '#27ae60', 'Para Entregar': '#e67e22'},
-                title='Distribuição de Status de Tarefas',
-                hole=0.4
-            )
-            fig_pie.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)",
-                margin=dict(l=0, r=0, t=35, b=0),
-                legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5)
-            )
-            st.plotly_chart(fig_pie, use_container_width=True)
+    st.markdown("<br><hr style='margin: 20px 0; border: 0; border-top: 1px dashed #eee;'><br>", unsafe_allow_html=True)
+
+    # Distribuição de Status de Tarefas (Linha 2)
+    if tarefas:
+        concluidas_count = len([t for t in tarefas if t.get('status') == 'Concluída'])
+        pendentes_count = len([t for t in tarefas if t.get('status') == 'Para Entregar'])
+        
+        if concluidas_count + pendentes_count > 0:
+            pie_options = {
+                "title": {
+                    "text": "Distribuição de Status de Tarefas",
+                    "left": "center",
+                    "textStyle": {"fontSize": 14, "color": "#4a3b8c"}
+                },
+                "tooltip": {
+                    "trigger": "item",
+                    "formatter": "{b}: {c} ({d}%)"
+                },
+                "legend": {
+                    "orient": "horizontal",
+                    "bottom": "bottom"
+                },
+                "series": [
+                    {
+                        "name": "Status",
+                        "type": "pie",
+                        "radius": ["50%", "70%"],
+                        "avoidLabelOverlap": False,
+                        "itemStyle": {
+                            "borderRadius": 8,
+                            "borderColor": "#fff",
+                            "borderWidth": 2
+                        },
+                        "label": {
+                            "show": True,
+                            "position": "outside",
+                            "formatter": "{b}: {c} ({d}%)"
+                        },
+                        "emphasis": {
+                            "label": {
+                                "show": True,
+                                "fontSize": "14",
+                                "fontWeight": "bold"
+                            }
+                        },
+                        "color": ["#27ae60", "#e67e22"],
+                        "data": [
+                            {"value": concluidas_count, "name": "Concluídas"},
+                            {"value": pendentes_count, "name": "Para Entregar"}
+                        ]
+                    }
+                ]
+            }
+            st_echarts(options=pie_options, height="350px", theme="streamlit", key="relatorio_status_tarefas_pie")
         else:
-            st.info("Registre tarefas para visualizar a distribuição de status.")
+            st.info("Nenhuma tarefa para exibir a distribuição de status.")
+    else:
+        st.info("Registre tarefas para visualizar a distribuição de status.")
+
+    st.markdown("<br><hr style='margin: 20px 0; border: 0; border-top: 1px dashed #eee;'><br>", unsafe_allow_html=True)
+
+    # --- Novo Gráfico: Crescimento de Atividades Concluídas (Área Acumulativa) ---
+    if tarefas:
+        st.markdown("<h5 style='color: #4a3b8c; margin-top: 25px; text-align: center;'>Crescimento de Atividades Concluídas</h5>", unsafe_allow_html=True)
+        
+        # Processar dados cronologicamente
+        concluidas_tasks = []
+        for t in tarefas:
+            if t.get('status') == 'Concluída' and t.get('data_entrega'):
+                d_str = t.get('data_entrega')
+                try:
+                    if isinstance(d_str, int):
+                        dt = datetime.datetime.fromtimestamp(d_str/1000.0).date()
+                    else:
+                        dt = datetime.datetime.fromisoformat(str(d_str).split('T')[0]).date()
+                    if dt.year > 1970:
+                        concluidas_tasks.append(dt)
+                except:
+                    pass
+        
+        if concluidas_tasks:
+            # Ordenar datas
+            concluidas_tasks.sort()
+            
+            # Contar tarefas concluidas por dia
+            date_counts = {}
+            for d in concluidas_tasks:
+                date_counts[d] = date_counts.get(d, 0) + 1
+                
+            sorted_dates = sorted(date_counts.keys())
+            
+            # Calcular acúmulo (cumsum)
+            cumulative_sum = 0
+            cumulative_data = []
+            x_dates = []
+            
+            for d in sorted_dates:
+                cumulative_sum += date_counts[d]
+                cumulative_data.append(cumulative_sum)
+                x_dates.append(d.strftime('%d/%m/%Y'))
+                
+            growth_options = {
+                "tooltip": {
+                    "trigger": "axis",
+                    "axisPointer": {"type": "cross"}
+                },
+                "grid": {
+                    "left": "3%",
+                    "right": "4%",
+                    "top": "8%",
+                    "bottom": "15%",
+                    "containLabel": True
+                },
+                "xAxis": {
+                    "type": "category",
+                    "boundaryGap": False,
+                    "data": x_dates
+                },
+                "yAxis": {
+                    "type": "value",
+                    "minInterval": 1
+                },
+                "series": [
+                    {
+                        "name": "Concluídas (Total)",
+                        "type": "line",
+                        "smooth": True,
+                        "symbolSize": 6,
+                        "color": "#6c5ce7",
+                        "areaStyle": {
+                            "opacity": 0.2
+                        },
+                        "data": cumulative_data
+                    }
+                ]
+            }
+            st_echarts(options=growth_options, height="300px", theme="streamlit", key="relatorio_growth_tarefas_line")
+        else:
+            st.caption("Nenhuma tarefa concluída para exibir o crescimento.")
 
     st.markdown("<br><hr style='border-top: 1px solid #eee;'><br>", unsafe_allow_html=True)
 
@@ -1355,8 +1623,72 @@ def modulo_relatorios():
             <tbody>
                 {html_boletim_rows}
             </tbody>
-        </table>
- 
+        </table>"""
+
+    # --- Calcular médias para o gráfico HTML ---
+    medias_html_disc = []
+    if disciplinas and not df_t_raw.empty:
+        for d in disciplinas:
+            mf, _ = calcular_media_disciplina(d['id'], df_t_raw, d)
+            if mf is not None:
+                medias_html_disc.append((d['nome'], mf))
+                
+    bars_html = ""
+    if medias_html_disc:
+        for disc_nome, grade in medias_html_disc[:6]: # Limitar a 6
+            h_px = max(0, min(140, int(grade * 14)))
+            bars_html += f"""
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 60px;">
+                <div style="font-size: 11px; font-weight: bold; margin-bottom: 5px; color: #4a3b8c;">{grade:.2f}</div>
+                <div style="width: 100%; max-width: 35px; height: {h_px}px; background: linear-gradient(180deg, #6c5ce7 0%, #4a3b8c 100%); border-top-left-radius: 6px; border-top-right-radius: 6px; box-shadow: 0 2px 4px rgba(108,92,231,0.2);"></div>
+                <div style="font-size: 10px; margin-top: 8px; text-align: center; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 80px; color: #718096;" title="{disc_nome}">{disc_nome}</div>
+            </div>"""
+    else:
+        bars_html = "<div style='text-align: center; color: #a0aec0; width: 100%; padding: 20px;'>Nenhuma média de notas registrada ainda.</div>"
+
+    completed_percentage = (num_concluidas / num_tarefas * 100) if num_tarefas > 0 else 0.0
+    pendentes_percentage = (num_pendentes / num_tarefas * 100) if num_tarefas > 0 else 0.0
+    stroke_completed = f"{completed_percentage:.1f} {100 - completed_percentage:.1f}"
+
+    html_content += f"""
+        <!-- Gráficos de Acompanhamento no HTML -->
+        <div class="section-title">
+            <span>Visualização de Desempenho e Progresso</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+            <!-- Bar Chart Card -->
+            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                <h4 style="margin: 0 0 20px 0; text-align: center; font-size: 14px; color: #4a3b8c; font-weight: 600;">Média Final Ponderada por Disciplina</h4>
+                <div style="display: flex; align-items: flex-end; justify-content: space-around; height: 180px; padding: 10px 0; border-bottom: 2px solid #edf2f7;">
+                    {bars_html}
+                </div>
+            </div>
+            
+            <!-- Pie Chart Card -->
+            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between;">
+                <h4 style="margin: 0 0 10px 0; text-align: center; font-size: 14px; color: #4a3b8c; font-weight: 600;">Distribuição de Status de Tarefas</h4>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-grow: 1;">
+                    <svg width="120" height="120" viewBox="0 0 42 42" style="transform: rotate(-90deg);">
+                        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#edf2f7" stroke-width="4"></circle>
+                        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#e67e22" stroke-width="4"></circle>
+                        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#27ae60" stroke-width="4" stroke-dasharray="{stroke_completed}" stroke-dashoffset="0"></circle>
+                    </svg>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+                            <span style="display: inline-block; width: 12px; height: 12px; background: #27ae60; border-radius: 50%;"></span>
+                            <span style="font-weight: 500;">Concluídas: {num_concluidas} ({completed_percentage:.1f}%)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+                            <span style="display: inline-block; width: 12px; height: 12px; background: #e67e22; border-radius: 50%;"></span>
+                            <span style="font-weight: 500;">Para Entregar: {num_pendentes} ({pendentes_percentage:.1f}%)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>"""
+
+    # --- Continuar com a tabela de tarefas ---
+    html_content += """
         <!-- Tabela de Tarefas e Notas -->
         <div class="section-title">
             <span>Histórico de Tarefas, Atividades e Notas</span>
@@ -1373,7 +1705,7 @@ def modulo_relatorios():
                 </tr>
             </thead>
             <tbody>"""
-            
+
     # Adicionar as tarefas dinamicamente no HTML (Aplicando os Filtros)
     if not df_filtrado_raw.empty:
         for _, row in df_filtrado_raw.iterrows():

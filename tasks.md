@@ -1,2 +1,8 @@
 - [x] Criar a tabela `user_profiles` no banco de dados para armazenar `first_name`, `last_name`, `date_of_birth` e a foto.
 - [x] Criar a página de perfil no Streamlit (`pages/profile.py`) onde o usuário pode editar seus dados.
+- [x] Criar o mapeamento rápido de disciplinas (`map_discs`) em `pages/dashboard.py`.
+- [x] Atualizar o loop de renderização em `pages/dashboard.py` para calcular o prazo restante e obter nomes de disciplinas e cursos.
+- [x] Implementar os badges de alerta (Atrasada / Entrega Próxima) com cores customizadas para bordas e fundos dos cards.
+- [x] Verificar visualmente as mudanças executando a aplicação.
+- [x] Substituir gráfico Plotly Express por ECharts no painel geral com mais opções (Linha, Área, Barra, Barra Empilhada, Dispersão).
+- [x] Criar novos gráficos de Progresso e Registro de Atividades (Gráfico de Rosca de Status de Tarefa + Crescimento Acumulado).
